@@ -19,6 +19,7 @@ import re
 from dataclasses import dataclass
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
 from doublerbay.grid.zone import Side
 
 _STRINGER = re.compile(r"^S-?(\d{1,2})\s*([LR])?$", re.IGNORECASE)
@@ -38,23 +39,23 @@ class Stringer:
 
     def __post_init__(self) -> None:
         if not CROWN <= self.number <= MAX_STRINGER:
-            raise ValueError(f"S-{self.number} is not on this barrel")
+            raise BadReading(f"S-{self.number} is not on this barrel")
         if self.number == CROWN and self.side is not Side.CENTRE:
-            raise ValueError("the crown stringer has no hand")
+            raise BadReading("the crown stringer has no hand")
         if self.number != CROWN and self.side is Side.CENTRE:
-            raise ValueError(f"S-{self.number} has to say which hand it is on")
+            raise BadReading(f"S-{self.number} has to say which hand it is on")
 
     @classmethod
     def parse(cls, text: str) -> Stringer:
         match = _STRINGER.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a stringer")
+            raise BadReading(f"{text!r} is not a stringer")
         number = int(match.group(1))
         hand = match.group(2)
         if number == CROWN:
             return cls(CROWN)
         if hand is None:
-            raise ValueError(f"{text!r} does not say which hand")
+            raise BadReading(f"{text!r} does not say which hand")
         return cls(number, Side.LEFT if hand.upper() == "L" else Side.RIGHT)
 
     @property
@@ -73,7 +74,7 @@ class Stringer:
     def spans_to(self, other: Stringer) -> int:
         """How many stringer pitches apart, on the same hand."""
         if self.side is not other.side and not (self.is_crown or other.is_crown):
-            raise ValueError("stringers on opposite hands do not span")
+            raise BadReading("stringers on opposite hands do not span")
         return abs(self.number - other.number)
 
     def __lt__(self, other: Stringer) -> bool:
@@ -94,13 +95,13 @@ class Frame:
 
     def __post_init__(self) -> None:
         if self.number < 1:
-            raise ValueError(f"frame numbers start at one, got {self.number}")
+            raise BadReading(f"frame numbers start at one, got {self.number}")
 
     @classmethod
     def parse(cls, text: str) -> Frame:
         match = _FRAME.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a frame")
+            raise BadReading(f"{text!r} is not a frame")
         return cls(int(match.group(1)))
 
     def next_aft(self) -> Frame:
@@ -129,11 +130,11 @@ class Bay:
 
     def __post_init__(self) -> None:
         if self.forward >= self.aft:
-            raise ValueError(f"{self.forward} is not forward of {self.aft}")
+            raise BadReading(f"{self.forward} is not forward of {self.aft}")
         if not self.upper.is_above(self.lower):
-            raise ValueError(f"{self.upper} is not above {self.lower}")
+            raise BadReading(f"{self.upper} is not above {self.lower}")
         if self.upper.side is not self.lower.side and not self.upper.is_crown:
-            raise ValueError("a bay does not straddle the crown")
+            raise BadReading("a bay does not straddle the crown")
 
     @property
     def side(self) -> Side:

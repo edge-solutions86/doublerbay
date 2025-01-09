@@ -18,6 +18,7 @@ import re
 from decimal import Decimal
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
 from doublerbay.measure.length import Length
 
 PLACES = Decimal("0.0001")
@@ -79,14 +80,14 @@ class Taper:
 
     def __init__(self, run: int) -> None:
         if run < 1:
-            raise ValueError(f"a taper runs at least one to one, got {run}")
+            raise BadReading(f"a taper runs at least one to one, got {run}")
         self._run = run
 
     @classmethod
     def parse(cls, text: str) -> Taper:
         match = _TAPER.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a taper, write it as 20:1")
+            raise BadReading(f"{text!r} is not a taper, write it as 20:1")
         return cls(int(match.group(1)))
 
     @property

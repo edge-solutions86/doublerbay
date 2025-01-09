@@ -16,6 +16,8 @@ import re
 from decimal import Decimal
 from functools import total_ordering
 
+from doublerbay.errors import BadReading, WrongMeasure
+
 MILS_PER_INCH = 1000
 MM_PER_INCH = Decimal("25.4")
 
@@ -31,7 +33,7 @@ class Length:
 
     def __init__(self, mils: int) -> None:
         if not isinstance(mils, int) or isinstance(mils, bool):
-            raise TypeError(f"a length is a whole number of mils, got {mils!r}")
+            raise WrongMeasure(f"a length is a whole number of mils, got {mils!r}")
         self._mils = mils
 
     @classmethod
@@ -40,7 +42,7 @@ class Length:
         scaled = d * MILS_PER_INCH
         rounded = int(scaled.to_integral_value())
         if scaled != rounded:
-            raise ValueError(f"{d} in is finer than a thousandth")
+            raise BadReading(f"{d} in is finer than a thousandth")
         return cls(rounded)
 
     @classmethod
@@ -116,15 +118,15 @@ def parse_length(text: str) -> Length:
     """
     cleaned = text.strip()
     if not cleaned:
-        raise ValueError("empty length")
+        raise BadReading("empty length")
     if _DECIMAL.match(cleaned):
         return Length.of_inches(Decimal(cleaned))
     match = _FRACTION.match(cleaned)
     if match is None:
-        raise ValueError(f"{text!r} is not a length callout")
+        raise BadReading(f"{text!r} is not a length callout")
     sign, whole, numerator, denominator = match.groups()
     if int(denominator) == 0:
-        raise ValueError(f"{text!r} divides by zero")
+        raise BadReading(f"{text!r} divides by zero")
     total = Decimal(whole or 0) + Decimal(numerator) / Decimal(denominator)
     if sign == "-":
         total = -total

@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from functools import total_ordering
 from typing import Self
 
+from doublerbay.errors import BadReading, WrongMeasure
 from doublerbay.measure.length import Length
 
 _STATION = re.compile(r"^(?:STA\s*)?([+-]?[\d.]+)$", re.IGNORECASE)
@@ -30,7 +31,7 @@ def _inches(text: str, what: str) -> Length:
     try:
         return Length.of_inches(Decimal(text))
     except InvalidOperation:
-        raise ValueError(f"{text!r} is not a {what}") from None
+        raise BadReading(f"{text!r} is not a {what}") from None
 
 
 @total_ordering
@@ -42,7 +43,7 @@ class Axis:
 
     def __init__(self, at: Length) -> None:
         if not isinstance(at, Length):
-            raise TypeError(f"a coordinate is a length, got {at!r}")
+            raise WrongMeasure(f"a coordinate is a length, got {at!r}")
         self._at = at
 
     @classmethod
@@ -66,7 +67,7 @@ class Axis:
 
     def _same_ruler(self, other: Axis) -> None:
         if type(self) is not type(other):
-            raise TypeError(f"{self.mark} and {other.mark} are different rulers")
+            raise WrongMeasure(f"{self.mark} and {other.mark} are different rulers")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Axis):
@@ -101,7 +102,7 @@ class Station(Axis):
     def parse(cls, text: str) -> Station:
         match = _STATION.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a station")
+            raise BadReading(f"{text!r} is not a station")
         return cls(_inches(match.group(1), "station"))
 
 
@@ -115,7 +116,7 @@ class Waterline(Axis):
     def parse(cls, text: str) -> Waterline:
         match = _WATERLINE.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a waterline")
+            raise BadReading(f"{text!r} is not a waterline")
         return cls(_inches(match.group(1), "waterline"))
 
 
@@ -129,7 +130,7 @@ class ButtockLine(Axis):
     def parse(cls, text: str) -> ButtockLine:
         match = _BUTTOCK.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a buttock line")
+            raise BadReading(f"{text!r} is not a buttock line")
         hand = match.group(1)
         reading = _inches(match.group(2), "buttock line")
         if hand and hand.upper() == "L":

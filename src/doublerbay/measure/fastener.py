@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
 from doublerbay.measure.length import MILS_PER_INCH, Length
 
 THIRTY_SECONDS = Decimal(32)
@@ -44,13 +45,13 @@ class FastenerSize:
 
     def __post_init__(self) -> None:
         if self.dash < 1:
-            raise ValueError(f"a dash number counts thirty seconds, got {self.dash}")
+            raise BadReading(f"a dash number counts thirty seconds, got {self.dash}")
 
     @classmethod
     def parse(cls, text: str) -> FastenerSize:
         match = _DASH.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a dash number")
+            raise BadReading(f"{text!r} is not a dash number")
         return cls(int(match.group(1)))
 
     @property
@@ -116,4 +117,4 @@ def next_size_up(size: FastenerSize) -> FastenerSize:
     for dash in STOCKED_DASHES:
         if dash > size.dash:
             return FastenerSize(dash)
-    raise ValueError(f"{size} is the largest stocked fastener")
+    raise BadReading(f"{size} is the largest stocked fastener")

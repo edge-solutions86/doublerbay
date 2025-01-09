@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import total_ordering
 
+from doublerbay.errors import BadReading, WrongMeasure
+
 MINUTES_PER_HOUR = 60
 
 
@@ -28,9 +30,9 @@ class Cycles:
 
     def __init__(self, count: int) -> None:
         if not isinstance(count, int) or isinstance(count, bool):
-            raise TypeError(f"cycles are whole, got {count!r}")
+            raise WrongMeasure(f"cycles are whole, got {count!r}")
         if count < 0:
-            raise ValueError("an aircraft cannot fly a negative cycle")
+            raise BadReading("an aircraft cannot fly a negative cycle")
         self._count = count
 
     @property
@@ -75,9 +77,9 @@ class Hours:
 
     def __init__(self, minutes: int) -> None:
         if not isinstance(minutes, int) or isinstance(minutes, bool):
-            raise TypeError(f"hours are held as whole minutes, got {minutes!r}")
+            raise WrongMeasure(f"hours are held as whole minutes, got {minutes!r}")
         if minutes < 0:
-            raise ValueError("an aircraft cannot fly a negative hour")
+            raise BadReading("an aircraft cannot fly a negative hour")
         self._minutes = minutes
 
     @classmethod
@@ -85,7 +87,7 @@ class Hours:
         scaled = Decimal(value) * MINUTES_PER_HOUR
         rounded = int(scaled.to_integral_value())
         if scaled != rounded:
-            raise ValueError(f"{value} h is finer than a minute")
+            raise BadReading(f"{value} h is finer than a minute")
         return cls(rounded)
 
     @property

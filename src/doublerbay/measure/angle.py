@@ -18,6 +18,8 @@ from decimal import Decimal
 from enum import Enum
 from functools import total_ordering
 
+from doublerbay.errors import BadReading, WrongMeasure
+
 TENTHS_PER_DEGREE = 10
 FULL_TURN = 360 * TENTHS_PER_DEGREE
 HALF_TURN = 180 * TENTHS_PER_DEGREE
@@ -35,7 +37,7 @@ class Angle:
 
     def __init__(self, tenths: int) -> None:
         if not isinstance(tenths, int) or isinstance(tenths, bool):
-            raise TypeError(f"an angle is a whole number of tenths, got {tenths!r}")
+            raise WrongMeasure(f"an angle is a whole number of tenths, got {tenths!r}")
         self._tenths = tenths % FULL_TURN
 
     @classmethod
@@ -43,7 +45,7 @@ class Angle:
         scaled = Decimal(value) * TENTHS_PER_DEGREE
         rounded = int(scaled.to_integral_value())
         if scaled != rounded:
-            raise ValueError(f"{value} deg is finer than a tenth")
+            raise BadReading(f"{value} deg is finer than a tenth")
         return cls(rounded)
 
     @property

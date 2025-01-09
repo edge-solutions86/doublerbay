@@ -18,6 +18,7 @@ import math
 from dataclasses import dataclass
 from decimal import Decimal
 
+from doublerbay.errors import BadReading
 from doublerbay.measure.angle import Angle
 from doublerbay.measure.length import Length
 
@@ -53,7 +54,7 @@ class Offset:
     def bearing(self) -> Angle:
         """Which way the offset points, zero along the body and ninety around it."""
         if self.is_zero:
-            raise ValueError("an offset of nothing has no bearing")
+            raise BadReading("an offset of nothing has no bearing")
         radians = math.atan2(self.around.mils, self.along.mils)
         return Angle(round(math.degrees(radians) * 10))
 
@@ -88,7 +89,7 @@ ZERO_OFFSET = Offset(Length(0), Length(0))
 def arc_length(radius: Length, subtended: Angle) -> Length:
     """How far round the barrel a given angle takes you at a given radius."""
     if radius.mils <= 0:
-        raise ValueError("an arc needs a radius")
+        raise BadReading("an arc needs a radius")
     turn = Decimal(subtended.tenths) / Decimal(3600)
     circumference = Decimal(radius.mils) * 2 * Decimal(str(math.pi))
     return Length(int((circumference * turn).to_integral_value()))
@@ -97,7 +98,7 @@ def arc_length(radius: Length, subtended: Angle) -> Length:
 def subtended_angle(radius: Length, along_arc: Length) -> Angle:
     """The angle an arc of that length covers, which is the inverse of the above."""
     if radius.mils <= 0:
-        raise ValueError("an arc needs a radius")
+        raise BadReading("an arc needs a radius")
     circumference = Decimal(radius.mils) * 2 * Decimal(str(math.pi))
     turn = Decimal(along_arc.mils) / circumference
     return Angle(int((turn * 3600).to_integral_value()))

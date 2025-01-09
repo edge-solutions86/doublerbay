@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
+from doublerbay.errors import BadReading
 from doublerbay.measure.usage import Cycles, Hours, Usage
 
 _TERM = re.compile(r"^(\d+)\s*(FC|FH|MO|DY)$", re.IGNORECASE)
@@ -46,15 +47,15 @@ class Interval:
     def __post_init__(self) -> None:
         clocks = (self.cycles, self.hours, self.months, self.days)
         if all(clock is None for clock in clocks):
-            raise ValueError("an interval has to be against at least one clock")
+            raise BadReading("an interval has to be against at least one clock")
         if self.cycles is not None and self.cycles.count < 1:
-            raise ValueError("an interval in cycles counts at least one")
+            raise BadReading("an interval in cycles counts at least one")
         if self.hours is not None and self.hours.minutes < 1:
-            raise ValueError("an interval in hours counts at least one minute")
+            raise BadReading("an interval in hours counts at least one minute")
         if self.months is not None and self.months < 1:
-            raise ValueError("an interval in months counts at least one")
+            raise BadReading("an interval in months counts at least one")
         if self.days is not None and self.days < 1:
-            raise ValueError("an interval in days counts at least one")
+            raise BadReading("an interval in days counts at least one")
 
     @classmethod
     def parse(cls, text: str) -> Interval:
@@ -65,11 +66,11 @@ class Interval:
         days: int | None = None
         terms = [part.strip() for part in text.split("/") if part.strip()]
         if not terms:
-            raise ValueError(f"{text!r} carries no interval")
+            raise BadReading(f"{text!r} carries no interval")
         for term in terms:
             match = _TERM.match(term)
             if match is None:
-                raise ValueError(f"{term!r} is not an interval term")
+                raise BadReading(f"{term!r} is not an interval term")
             count, unit = int(match.group(1)), match.group(2).upper()
             if unit == "FC":
                 cycles = Cycles(count)
@@ -85,7 +86,7 @@ class Interval:
         """An escalation or a cut, applied to every clock the interval names."""
         ratio = Decimal(factor)
         if ratio <= 0:
-            raise ValueError("an interval cannot be scaled to nothing")
+            raise BadReading("an interval cannot be scaled to nothing")
         return Interval(
             cycles=Cycles(int((self.cycles.count * ratio).to_integral_value()))
             if self.cycles is not None

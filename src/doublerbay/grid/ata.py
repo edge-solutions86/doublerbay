@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
+
 _REFERENCE = re.compile(r"^(\d{2})-(\d{2})(?:-(\d{2}))?$")
 
 
@@ -63,20 +65,20 @@ class Reference:
 
     def __post_init__(self) -> None:
         if not 0 <= self.section <= 99:
-            raise ValueError(f"a section is two digits, got {self.section}")
+            raise BadReading(f"a section is two digits, got {self.section}")
         if self.subject is not None and not 0 <= self.subject <= 99:
-            raise ValueError(f"a subject is two digits, got {self.subject}")
+            raise BadReading(f"a subject is two digits, got {self.subject}")
 
     @classmethod
     def parse(cls, text: str) -> Reference:
         match = _REFERENCE.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a manual reference")
+            raise BadReading(f"{text!r} is not a manual reference")
         chapter_number = int(match.group(1))
         try:
             chapter = Chapter(chapter_number)
         except ValueError:
-            raise ValueError(f"chapter {chapter_number} is not one this desk reads") from None
+            raise BadReading(f"chapter {chapter_number} is not one this desk reads") from None
         subject = match.group(3)
         return cls(chapter, int(match.group(2)), int(subject) if subject is not None else None)
 

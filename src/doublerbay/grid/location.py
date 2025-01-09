@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from doublerbay.errors import BadReading
 from doublerbay.grid.ata import Chapter
 from doublerbay.grid.lattice import Frame, Stringer
 from doublerbay.grid.wing import Rib, Spar, Surface
@@ -29,7 +30,7 @@ SANITY_OFFSET = Length.of_inches("60.000")
 
 def _sane(offset: Length, what: str) -> None:
     if abs(offset) > SANITY_OFFSET:
-        raise ValueError(f"{offset} {what} is further than any bay on this aircraft")
+        raise BadReading(f"{offset} {what} is further than any bay on this aircraft")
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +94,7 @@ class WingPoint:
         _sane(self.outboard_of_rib, "outboard of rib")
         _sane(self.aft_of_spar, "aft of spar")
         if self.aft_of_spar.mils < 0:
-            raise ValueError("a point aft of a spar is not forward of it")
+            raise BadReading("a point aft of a spar is not forward of it")
 
     @property
     def chapter(self) -> Chapter:

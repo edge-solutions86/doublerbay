@@ -20,6 +20,7 @@ from decimal import Decimal, InvalidOperation
 from enum import Enum
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
 from doublerbay.grid.coordinate import Axis
 from doublerbay.grid.zone import Side
 from doublerbay.measure.length import Length
@@ -38,11 +39,11 @@ class WingStation(Axis):
     def parse(cls, text: str) -> WingStation:
         match = _WING_STATION.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a wing station")
+            raise BadReading(f"{text!r} is not a wing station")
         try:
             value = Decimal(match.group(1))
         except InvalidOperation:
-            raise ValueError(f"{text!r} is not a wing station") from None
+            raise BadReading(f"{text!r} is not a wing station") from None
         return cls(Length.of_inches(value))
 
 
@@ -89,21 +90,21 @@ class Rib:
 
     def __post_init__(self) -> None:
         if not 1 <= self.number <= 40:
-            raise ValueError(f"rib {self.number} is not on this wing")
+            raise BadReading(f"rib {self.number} is not on this wing")
         if self.side is Side.CENTRE:
-            raise ValueError("a rib belongs to one wing or the other")
+            raise BadReading("a rib belongs to one wing or the other")
 
     @classmethod
     def parse(cls, text: str) -> Rib:
         match = _RIB.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a rib")
+            raise BadReading(f"{text!r} is not a rib")
         hand = Side.LEFT if match.group(2).upper() == "L" else Side.RIGHT
         return cls(int(match.group(1)), hand)
 
     def is_inboard_of(self, other: Rib) -> bool:
         if self.side is not other.side:
-            raise ValueError("ribs on opposite wings do not compare")
+            raise BadReading("ribs on opposite wings do not compare")
         return self.number < other.number
 
     def mirrored(self) -> Rib:
@@ -130,11 +131,11 @@ class WingBay:
 
     def __post_init__(self) -> None:
         if self.inboard.side is not self.outboard.side:
-            raise ValueError("a wing bay does not cross the centreline")
+            raise BadReading("a wing bay does not cross the centreline")
         if not self.inboard.is_inboard_of(self.outboard):
-            raise ValueError(f"{self.inboard} is not inboard of {self.outboard}")
+            raise BadReading(f"{self.inboard} is not inboard of {self.outboard}")
         if not self.forward.is_forward_of(self.aft):
-            raise ValueError(f"{self.forward} is not forward of {self.aft}")
+            raise BadReading(f"{self.forward} is not forward of {self.aft}")
 
     @property
     def side(self) -> Side:

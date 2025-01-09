@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from doublerbay.errors import BadReading
 from doublerbay.measure.length import Length
 
 
@@ -82,7 +83,7 @@ def gauge_for(nominal: Length) -> SheetGauge:
     try:
         return _BY_NOMINAL[nominal]
     except KeyError:
-        raise ValueError(f"{nominal} is not a stocked gauge") from None
+        raise BadReading(f"{nominal} is not a stocked gauge") from None
 
 
 def is_stocked(nominal: Length) -> bool:
@@ -97,7 +98,7 @@ def next_heavier(wanted: Length) -> SheetGauge:
     for rung in STOCK_LADDER:
         if rung.nominal >= wanted:
             return rung
-    raise ValueError(f"{wanted} is heavier than any stocked sheet")
+    raise BadReading(f"{wanted} is heavier than any stocked sheet")
 
 
 def nearest(wanted: Length) -> SheetGauge:

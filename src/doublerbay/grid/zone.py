@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
 
+from doublerbay.errors import BadReading
+
 _ZONE = re.compile(r"^(\d{3})$")
 
 
@@ -66,13 +68,13 @@ class Zone:
 
     def __post_init__(self) -> None:
         if not 100 <= self.number <= 899:
-            raise ValueError(f"a zone is three digits from 100 to 899, got {self.number}")
+            raise BadReading(f"a zone is three digits from 100 to 899, got {self.number}")
 
     @classmethod
     def parse(cls, text: str) -> Zone:
         match = _ZONE.match(text.strip())
         if match is None:
-            raise ValueError(f"{text!r} is not a zone number")
+            raise BadReading(f"{text!r} is not a zone number")
         return cls(int(match.group(1)))
 
     @property
@@ -130,6 +132,6 @@ def zones_in(major: MajorZone, numbers: tuple[int, ...]) -> tuple[Zone, ...]:
     for number in numbers:
         zone = Zone(number)
         if zone.major is not major:
-            raise ValueError(f"zone {zone} is not in {major.title}")
+            raise BadReading(f"zone {zone} is not in {major.title}")
         built.append(zone)
     return tuple(built)
