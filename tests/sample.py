@@ -139,3 +139,20 @@ def forward_lower() -> PanelBuild:
 
 def airframe() -> Airframe:
     return Airframe("V320-200", grid(), (forward_upper(), aft_upper(), forward_lower()))
+
+
+def second_patch() -> InstalledDoubler:
+    """A second doubler put on top of the first one, which is not allowed."""
+    return InstalledDoubler(
+        part="RP-53-0009-1",
+        form=DoublerForm.EXTERNAL,
+        footprint=Footprint(at("632.000", "44.000"), inch("6.000"), inch("4.000"), inch("1.000")),
+        material=material("2024-T3 CLAD"),
+        gauge=inch("0.050"),
+        fitted=date(2022, 9, 30),
+    )
+
+
+def overlapping() -> PanelBuild:
+    """A panel that claims bays the forward upper panel already claims."""
+    return PanelBuild(panel=_panel(199, 41, 43, 2, 3), thickness=milled())
