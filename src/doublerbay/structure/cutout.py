@@ -10,19 +10,21 @@ The band is measured from the edge of the hole and not from its centre, so a
 big door and a small drain hole with the same corner radius keep the same
 distance clear. Inside that band the manual sends most things to a repair that
 would have been allowable two inches further out.
+
+The shape itself is a rounded rectangle and lives in one place now. What is left
+here is the part that is about holes rather than about geometry: what the hole
+is for, and how far clear of it damage has to stay.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from enum import Enum
 
 from doublerbay.errors import BadReading
-from doublerbay.grid.surface import Offset, hypotenuse
+from doublerbay.grid.surface import Offset
 from doublerbay.measure.length import Length
-
-HALF = Decimal("0.5")
+from doublerbay.structure.region import RoundedRect
 
 # The keep out band is twice the corner radius, but never less than an inch,
 # because a drain hole with a 0.125 radius still needs a working margin.
@@ -55,7 +57,7 @@ class CutoutKind(Enum):
 
 @dataclass(frozen=True, slots=True)
 class Cutout:
-    """A radiused rectangle in the skin, positioned in panel coordinates."""
+    """A hole in the skin, with the band around it that damage has to keep out of."""
 
     name: str
     kind: CutoutKind
@@ -67,56 +69,40 @@ class Cutout:
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise BadReading("a cutout has a name")
-        if self.along.mils <= 0 or self.around.mils <= 0:
-            raise BadReading(f"{self.name}: a cutout has a size")
         if self.corner_radius.mils <= 0:
             raise BadReading(f"{self.name}: a square corner is not a cutout")
-        half = min(self.along, self.around) * HALF
-        if self.corner_radius > half:
-            raise BadReading(f"{self.name}: a radius of {self.corner_radius} is past the middle")
+        try:
+            shape = self.shape
+        except BadReading as refusal:
+            raise BadReading(f"{self.name}: {refusal}") from None
+        if shape.is_round and self.kind.is_pressure_boundary:
+            raise BadReading(f"{self.name}: a pressure boundary hole is not a circle")
+
+    @property
+    def shape(self) -> RoundedRect:
+        return RoundedRect(self.centre, self.along, self.around, self.corner_radius)
 
     @property
     def is_round(self) -> bool:
-        """A hole whose radius has eaten both sides is a circle or a slot end."""
-        return self.corner_radius * 2 == min(self.along, self.around)
+        return self.shape.is_round
 
     @property
     def keep_out(self) -> Length:
         band = self.corner_radius * KEEP_OUT_FACTOR
         return max(band, KEEP_OUT_FLOOR)
 
-    def _to_corner_box(self, point: Offset) -> tuple[Length, Length]:
-        """How far the point is outside the box the corner radii are struck from."""
-        half_along = self.along * HALF - self.corner_radius
-        half_around = self.around * HALF - self.corner_radius
-        from_centre_along = abs(point.along - self.centre.along)
-        from_centre_around = abs(point.around - self.centre.around)
-        return (
-            max(from_centre_along - half_along, Length(0)),
-            max(from_centre_around - half_around, Length(0)),
-        )
-
     def edge_distance(self, point: Offset) -> Length:
-        """Distance from the point to the nearest edge of the hole, zero if inside."""
-        out_along, out_around = self._to_corner_box(point)
-        reach = hypotenuse(out_along, out_around)
-        if reach <= self.corner_radius:
-            return Length(0)
-        return reach - self.corner_radius
+        return self.shape.edge_distance(point)
 
     def contains(self, point: Offset) -> bool:
-        return self.edge_distance(point) == Length(0)
+        return self.shape.contains(point)
+
+    def near_a_corner(self, point: Offset) -> bool:
+        return self.shape.off_a_corner(point)
 
     def in_keep_out(self, point: Offset) -> bool:
         """Whether a point is close enough to be assessed under the cutout rules."""
-        if self.contains(point):
-            return True
         return self.edge_distance(point) <= self.keep_out
-
-    def near_a_corner(self, point: Offset) -> bool:
-        """Whether the point is off the flat sides, where the concentration bites."""
-        out_along, out_around = self._to_corner_box(point)
-        return out_along.mils > 0 and out_around.mils > 0
 
     def __str__(self) -> str:
         return f"{self.name} ({self.kind})"

@@ -33,7 +33,7 @@ def test_the_plugged_holes_are_the_pressure_boundary():
 def test_a_cutout_needs_a_name_and_a_size():
     with pytest.raises(BadReading, match="a cutout has a name"):
         Cutout(" ", CutoutKind.DRAIN, at("0", "0"), inch("1"), inch("1"), inch("0.5"))
-    with pytest.raises(BadReading, match="a cutout has a size"):
+    with pytest.raises(BadReading, match="has a size"):
         hatch(along="0")
 
 
@@ -43,7 +43,7 @@ def test_a_square_corner_is_not_a_cutout():
 
 
 def test_a_radius_past_the_middle_is_refused():
-    with pytest.raises(BadReading, match="is past the middle"):
+    with pytest.raises(BadReading, match="past the middle"):
         hatch(radius="3.001")
 
 

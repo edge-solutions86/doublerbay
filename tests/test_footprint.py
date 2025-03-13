@@ -27,12 +27,12 @@ def test_a_footprint_reads_as_its_size_and_place():
 
 
 def test_a_footprint_needs_a_size():
-    with pytest.raises(BadReading, match="a footprint has a size"):
+    with pytest.raises(BadReading, match="has a size"):
         patch(along="0")
 
 
 def test_a_corner_radius_past_the_middle_is_refused():
-    with pytest.raises(BadReading, match="past the middle is not a rectangle"):
+    with pytest.raises(BadReading, match="past the middle"):
         patch(radius="2.001")
     with pytest.raises(BadReading, match="does not run backwards"):
         patch(radius="-0.001")
