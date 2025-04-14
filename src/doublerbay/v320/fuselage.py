@@ -22,6 +22,7 @@ from __future__ import annotations
 from decimal import Decimal
 from functools import lru_cache
 
+from doublerbay.errors import BadReading
 from doublerbay.grid.coordinate import Station
 from doublerbay.grid.lattice import Frame, Stringer
 from doublerbay.grid.surface import Offset
@@ -109,7 +110,13 @@ GAUGES: dict[tuple[str, str], str] = {
     ("aft", "keel"): "0.063",
 }
 
-SECTION_BOUNDS = (("forward", 1, 20), ("centre", 20, 40), ("aft", 40, FRAME_COUNT))
+# The section splits are fixed forward and float at the back, because the
+# short series loses its frames out of the tail cone and nowhere else.
+FORWARD_LAST = 20
+CENTRE_LAST = 40
+# How many frames the cabin windows run for before the tail cone starts.
+WINDOW_FIRST_FRAME = 12
+WINDOW_TAIL_MARGIN = 13
 
 
 def station_of_frame(number: int) -> Station:
@@ -120,8 +127,16 @@ def station_of_frame(number: int) -> Station:
     return Station.of_inches(str(at))
 
 
-def section_of(frame_number: int) -> str:
-    for name, first, last in SECTION_BOUNDS:
+def section_bounds(frame_count: int = FRAME_COUNT) -> tuple[tuple[str, int, int], ...]:
+    return (
+        ("forward", 1, FORWARD_LAST),
+        ("centre", FORWARD_LAST, CENTRE_LAST),
+        ("aft", CENTRE_LAST, frame_count),
+    )
+
+
+def section_of(frame_number: int, frame_count: int = FRAME_COUNT) -> str:
+    for name, first, last in section_bounds(frame_count):
         if first <= frame_number < last:
             return name
     return "aft"
@@ -158,11 +173,11 @@ def material_of(band: str) -> Material:
     return material("7075-T6 CLAD") if band == "keel" else material("2024-T3 CLAD")
 
 
-def grid() -> FuselageGrid:
+def grid(frame_count: int = FRAME_COUNT) -> FuselageGrid:
     return FuselageGrid(
         frames=tuple(
             FrameStation(Frame(number), station_of_frame(number))
-            for number in range(1, FRAME_COUNT + 1)
+            for number in range(1, frame_count + 1)
         ),
         stringers=tuple(
             StringerLine(
@@ -205,9 +220,10 @@ def _thickness(gauge: Length, section: str) -> ThicknessMap:
     return ThicknessMap(land, pocket, Length.of_inches("1.000"))
 
 
-def _windows(forward: Frame, aft: Frame, upper: Stringer) -> tuple[Cutout, ...]:
+def _windows(forward: Frame, aft: Frame, upper: Stringer, frame_count: int) -> tuple[Cutout, ...]:
     """A window in each frame bay of the passenger cabin, between S-6 and S-9."""
-    if upper.number != 4 or not 12 <= forward.number < 48:
+    last_window = frame_count - WINDOW_TAIL_MARGIN
+    if upper.number != 4 or not WINDOW_FIRST_FRAME <= forward.number < last_window:
         return ()
     found = []
     for number in range(forward.number, aft.number):
@@ -225,16 +241,16 @@ def _windows(forward: Frame, aft: Frame, upper: Stringer) -> tuple[Cutout, ...]:
     return tuple(found)
 
 
-def _panels(side: Side) -> list[PanelBuild]:
+def _panels(side: Side, frame_count: int) -> list[PanelBuild]:
     built: list[PanelBuild] = []
     sequence = 100 if side is Side.LEFT else 500
-    for first_frame in range(1, FRAME_COUNT, PANEL_FRAME_SPAN):
-        last_frame = min(first_frame + PANEL_FRAME_SPAN, FRAME_COUNT)
+    for first_frame in range(1, frame_count, PANEL_FRAME_SPAN):
+        last_frame = min(first_frame + PANEL_FRAME_SPAN, frame_count)
         if last_frame <= first_frame:
             continue
         for first_stringer in range(0, len(STRINGER_ARCS) - 1, PANEL_STRINGER_SPAN):
             last_stringer = min(first_stringer + PANEL_STRINGER_SPAN, len(STRINGER_ARCS) - 1)
-            section = section_of(first_frame)
+            section = section_of(first_frame, frame_count)
             band = band_of(first_stringer)
             gauge = Length.of_inches(GAUGES[(section, band)])
             upper = Stringer(first_stringer, side) if first_stringer else Stringer(0)
@@ -264,7 +280,7 @@ def _panels(side: Side) -> list[PanelBuild]:
                     panel=panel,
                     thickness=_thickness(gauge, section),
                     joints=joints,
-                    cutouts=_windows(Frame(first_frame), Frame(last_frame), upper)
+                    cutouts=_windows(Frame(first_frame), Frame(last_frame), upper, frame_count)
                     if side is Side.LEFT
                     else (),
                 )
@@ -273,8 +289,20 @@ def _panels(side: Side) -> list[PanelBuild]:
     return built
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=4)
+def barrel_for(frame_count: int = FRAME_COUNT) -> Airframe:
+    """A barrel of a given length, built once per length and shared.
+
+    The three series share a cross section and differ in how many frames go
+    between the wing box and the tail cone, so one definition and a frame count
+    covers all of them.
+    """
+    if frame_count < CENTRE_LAST + 2:
+        raise BadReading(f"a barrel of {frame_count} frames has no tail cone")
+    panels = _panels(Side.LEFT, frame_count) + _panels(Side.RIGHT, frame_count)
+    return Airframe(f"{MODEL} ({frame_count} frames)", grid(frame_count), tuple(panels))
+
+
 def barrel() -> Airframe:
-    """The whole barrel, built once and shared."""
-    panels = _panels(Side.LEFT) + _panels(Side.RIGHT)
-    return Airframe(MODEL, grid(), tuple(panels))
+    """The standard series barrel, which is what most of the fleet is."""
+    return barrel_for(FRAME_COUNT)
