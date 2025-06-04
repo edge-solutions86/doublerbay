@@ -55,6 +55,10 @@ class Opening:
         """A torn edge is a row of crack starters and gets cut back to clean metal."""
         return self.torn_edges
 
+    def limit_depth(self) -> Length | None:
+        """No depth reads off this, an opening has gone all the way through."""
+        return None
+
     def trimmed(self, back_by: Length) -> Opening:
         """The opening once the torn edges have been cut out, which is what gets covered."""
         if back_by.mils < 0:
@@ -100,6 +104,10 @@ class Buckle:
         """A buckle running around the barrel is across the compression that made it."""
         return self.orientation is Orientation.CIRCUMFERENTIAL
 
+    def limit_depth(self) -> Length | None:
+        """No depth reads off this, a buckle is out of plane, not into the metal."""
+        return None
+
     @property
     def is_oil_canning(self) -> bool:
         """Not yet established as permanent, so it may pop back and may be nothing."""
@@ -132,6 +140,10 @@ class Disbond:
     @property
     def area(self) -> Decimal:
         return square_inches(self.along, self.around)
+
+    def limit_depth(self) -> Length | None:
+        """No depth reads off this, a disbond is an area and nothing else."""
+        return None
 
     @property
     def is_bounded(self) -> bool:

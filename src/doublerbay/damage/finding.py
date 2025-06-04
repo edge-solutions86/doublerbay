@@ -21,6 +21,7 @@ from datetime import date
 from doublerbay.damage.corrosion import Corrosion
 from doublerbay.damage.crack import Crack
 from doublerbay.damage.dent import Dent
+from doublerbay.damage.geometry import Geometry
 from doublerbay.damage.kind import DamageKind, DamageOrigin, check_pairing
 from doublerbay.damage.opening import Buckle, Disbond, Opening
 from doublerbay.damage.scoring import Scoring
@@ -34,7 +35,6 @@ from doublerbay.measure.length import Length
 from doublerbay.measure.usage import Usage
 from doublerbay.structure.footprint import Footprint
 
-Geometry = Dent | Scoring | Crack | Corrosion | LightningBurn | Opening | Buckle | Disbond
 Point = FuselagePoint | WingPoint
 
 # Which measurement set each kind is reported with. One entry per kind, and the
@@ -104,15 +104,11 @@ class Finding:
         return self.geometry.footprint(centre)
 
     def governing_depth(self) -> Length:
-        """The depth the limit tables read, for the kinds that have one."""
-        geometry = self.geometry
-        if isinstance(geometry, Dent | Scoring):
-            return geometry.depth
-        if isinstance(geometry, Corrosion):
-            return geometry.governing_depth
-        if isinstance(geometry, LightningBurn):
-            return geometry.worst_pit
-        raise BadReading(f"a {self.kind} is not measured with a depth")
+        """The depth the limit tables read, asked of the measurements themselves."""
+        depth = self.geometry.limit_depth()
+        if depth is None:
+            raise BadReading(f"a {self.kind} is not measured with a depth")
+        return depth
 
     def re_measured(self, geometry: Geometry, on: date, at_usage: Usage) -> Finding:
         """The same damage looked at again, which is a new revision of one record."""

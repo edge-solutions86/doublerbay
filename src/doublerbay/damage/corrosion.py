@@ -81,6 +81,10 @@ class Corrosion:
     def footprint(self, centre: Offset) -> Footprint:
         return Footprint.square(centre, self.along, self.around)
 
+    def limit_depth(self) -> Length | None:
+        """The worst pit, which is the only depth corrosion is judged on."""
+        return self.worst_depth
+
     def worse_than(self, other: Corrosion) -> bool:
         if self.exfoliating != other.exfoliating:
             return self.exfoliating

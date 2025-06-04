@@ -71,6 +71,10 @@ class LightningBurn:
     def footprint(self, centre: Offset) -> Footprint:
         return Footprint.square(centre, self.along, self.around)
 
+    def limit_depth(self) -> Length | None:
+        """The deepest pit in the attachment area."""
+        return self.worst_pit
+
     def worse_than(self, other: LightningBurn) -> bool:
         if self.on_a_fastener != other.on_a_fastener:
             return self.on_a_fastener

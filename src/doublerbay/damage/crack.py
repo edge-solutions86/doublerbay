@@ -75,6 +75,10 @@ class Crack:
             return Footprint.square(centre, thickness, self.length)
         return Footprint.square(centre, self.length, thickness)
 
+    def limit_depth(self) -> Length | None:
+        """A crack has a length and no depth any table reads."""
+        return None
+
     def __str__(self) -> str:
         head = f"{self.length.inches} long, {self.bearing}"
         if not self.through_thickness:

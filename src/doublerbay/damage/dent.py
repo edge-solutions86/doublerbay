@@ -73,6 +73,10 @@ class Dent:
         """The skin it covers, for working out what it is close to."""
         return Footprint(centre, self.along, self.around, self.narrow * HALF)
 
+    def limit_depth(self) -> Length | None:
+        """A dent is graded on how far the metal went in."""
+        return self.depth
+
     def deeper_than(self, other: Dent) -> bool:
         return self.depth > other.depth
 

@@ -71,6 +71,10 @@ class Scoring:
             return Footprint.square(centre, self.width, self.length)
         return Footprint.square(centre, self.length, self.width)
 
+    def limit_depth(self) -> Length | None:
+        """A score is graded on how much metal is gone under it."""
+        return self.depth
+
     def __str__(self) -> str:
         head = f"{self.depth.inches} deep, {self.length.inches} long, {self.bearing}"
         return f"{head}, sharp" if self.sharp_bottom else head
