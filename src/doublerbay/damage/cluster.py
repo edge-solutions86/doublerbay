@@ -31,6 +31,34 @@ _HALF = Decimal("0.5")
 
 
 @dataclass(frozen=True, slots=True)
+class SeparationRule:
+    """How much clear skin the book asks for between two damages.
+
+    The multiple is applied to the larger of the two extents and the floor is
+    what a pair of very small damages get instead. Both come off a manual page
+    rather than out of this module, which only knows how to apply them.
+    """
+
+    multiple: Decimal = Decimal("1")
+    floor: Length = SEPARATION_FLOOR
+
+    def __post_init__(self) -> None:
+        if self.multiple <= 0:
+            raise BadReading("a separation multiple is a multiple")
+        if self.floor.mils < 0:
+            raise BadReading("a separation floor does not run backwards")
+
+    def between(self, first: Length, second: Length) -> Length:
+        return max(max(first, second) * self.multiple, self.floor)
+
+    def __str__(self) -> str:
+        return f"{self.multiple} times the larger, floor {self.floor.inches}"
+
+
+DEFAULT_SEPARATION = SeparationRule()
+
+
+@dataclass(frozen=True, slots=True)
 class Placed:
     """A finding with its centre resolved into skin coordinates."""
 
@@ -50,18 +78,20 @@ class Placed:
         return f"{self.finding.reference} at {self.centre}"
 
 
-def separation_required(first: Placed, second: Placed) -> Length:
+def separation_required(
+    first: Placed, second: Placed, rule: SeparationRule = DEFAULT_SEPARATION
+) -> Length:
     """Clear separation asked for between two damages, taken off the larger of them."""
-    return max(first.extent, second.extent, SEPARATION_FLOOR)
+    return rule.between(first.extent, second.extent)
 
 
 def gap_between(first: Placed, second: Placed) -> Length:
     return first.footprint.clearance_to(second.footprint)
 
 
-def interacts(first: Placed, second: Placed) -> bool:
+def interacts(first: Placed, second: Placed, rule: SeparationRule = DEFAULT_SEPARATION) -> bool:
     """Whether the two have to be assessed as one damage."""
-    return gap_between(first, second) < separation_required(first, second)
+    return gap_between(first, second) < separation_required(first, second, rule)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +139,9 @@ class Cluster:
         return f"{self.size} together, envelope {self.envelope.longer_side.inches}"
 
 
-def clusters(placed: list[Placed]) -> tuple[Cluster, ...]:
+def clusters(
+    placed: list[Placed], rule: SeparationRule = DEFAULT_SEPARATION
+) -> tuple[Cluster, ...]:
     """Group findings into the sets that have to be assessed together."""
     parent = list(range(len(placed)))
 
@@ -121,7 +153,7 @@ def clusters(placed: list[Placed]) -> tuple[Cluster, ...]:
 
     for i, first in enumerate(placed):
         for j in range(i + 1, len(placed)):
-            if interacts(first, placed[j]):
+            if interacts(first, placed[j], rule):
                 parent[root(i)] = root(j)
 
     grouped: dict[int, list[Placed]] = {}
