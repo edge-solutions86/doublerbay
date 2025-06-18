@@ -5,12 +5,16 @@ it is on, and what part of the panel it is in. Almost every row leaves at least
 one of those blank, meaning any, and a page that spelt out every combination
 would run to hundreds of rows nobody could check.
 
-So the lookup is a specificity match. A row keyed on all three beats a row
-keyed on two, which beats a row keyed on damage kind alone, and the most
-specific one that matches is the one that answers. Two rows that match equally
-specifically is not a tie to be broken by ordering, it is a contradiction in the
-book, and it is raised rather than silently resolved by whichever happened to be
-typed in first.
+So the lookup is a specificity match, and the three keys do not weigh the same.
+Where the damage is sitting beats what the skin is, because a fastener row is a
+fastener row on every panel on the aeroplane, and a page that says nothing is
+allowable on a row means it whether the row is in the crown or the belly. So a
+row keyed on region alone outranks a row keyed on panel kind alone, and a row
+keyed on both outranks either.
+
+Two rows that still match equally specifically is not a tie to be broken by
+ordering. It is a contradiction in the book, and it is raised rather than
+silently resolved by whichever happened to be typed in first.
 """
 
 from __future__ import annotations
@@ -25,6 +29,12 @@ from doublerbay.manual.limits import LimitSet
 from doublerbay.structure.build import Region
 from doublerbay.structure.panel import PanelKind
 
+# Region outranks panel kind, so a row keyed on where the damage sits beats one
+# keyed on what the skin is, and a row keyed on both beats either.
+DAMAGE_WEIGHT = 1
+PANEL_WEIGHT = 2
+REGION_WEIGHT = 4
+
 
 @dataclass(frozen=True, slots=True)
 class LimitKey:
@@ -36,8 +46,13 @@ class LimitKey:
 
     @property
     def specificity(self) -> int:
-        """How many of the three keys are pinned down, which is how rows are ranked."""
-        return 1 + sum(field is not None for field in (self.panel_kind, self.region))
+        """How tightly the row is keyed, with region weighing more than panel kind."""
+        score = DAMAGE_WEIGHT
+        if self.panel_kind is not None:
+            score += PANEL_WEIGHT
+        if self.region is not None:
+            score += REGION_WEIGHT
+        return score
 
     def matches(self, damage: DamageKind, panel: PanelKind, region: Region) -> bool:
         if self.damage_kind is not damage:

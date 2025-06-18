@@ -40,11 +40,20 @@ def test_a_key_reads_back_what_it_is_keyed_on():
     assert str(keyed) == "dent on pressurised skin on a fastener row"
 
 
-def test_specificity_counts_how_much_of_the_key_is_pinned_down():
+def test_specificity_ranks_a_region_row_above_a_panel_row():
     assert LimitKey(DamageKind.DENT).specificity == 1
-    assert LimitKey(DamageKind.DENT, PanelKind.PRESSURISED_SKIN).specificity == 2
-    assert LimitKey(DamageKind.DENT, None, Region.LAND).specificity == 2
-    assert LimitKey(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.LAND).specificity == 3
+    assert LimitKey(DamageKind.DENT, PanelKind.PRESSURISED_SKIN).specificity == 3
+    assert LimitKey(DamageKind.DENT, None, Region.LAND).specificity == 5
+    assert LimitKey(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.LAND).specificity == 7
+
+
+def test_a_row_keyed_on_the_region_answers_over_one_keyed_on_the_skin():
+    both = table(
+        row(panel=PanelKind.PRESSURISED_SKIN, depth="0.008"),
+        row(region=Region.FASTENER_ROW, depth="0.004"),
+    )
+    found = both.lookup(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.FASTENER_ROW)
+    assert found.limits.max_depth == inch("0.004")
 
 
 def test_a_blank_field_matches_anything_in_that_field():
@@ -89,7 +98,7 @@ def test_the_catch_all_row_answers_when_nothing_else_does():
 
 def test_the_candidates_come_back_most_specific_first():
     found = table().candidates(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.FASTENER_ROW)
-    assert [one.key.specificity for one in found] == [3, 2, 1]
+    assert [one.key.specificity for one in found] == [7, 3, 1]
 
 
 def test_a_damage_kind_with_no_row_is_a_lookup_miss():
@@ -99,20 +108,22 @@ def test_a_damage_kind_with_no_row_is_a_lookup_miss():
 
 def test_two_rows_that_answer_equally_are_a_contradiction_and_not_a_tie():
     contradictory = table(
+        row(depth="0.010"),
         row(panel=PanelKind.PRESSURISED_SKIN, depth="0.008"),
-        row(region=Region.FASTENER_ROW, depth="0.004"),
+        row(panel=PanelKind.PRESSURISED_SKIN, depth="0.004"),
     )
     with pytest.raises(BadReading, match="has 2 rows that answer"):
-        contradictory.lookup(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.FASTENER_ROW)
+        contradictory.lookup(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.OPEN_FIELD)
 
 
 def test_a_contradiction_only_bites_where_both_rows_actually_match():
     contradictory = table(
+        row(depth="0.010"),
         row(panel=PanelKind.PRESSURISED_SKIN, depth="0.008"),
-        row(region=Region.FASTENER_ROW, depth="0.004"),
+        row(panel=PanelKind.PRESSURISED_SKIN, depth="0.004"),
     )
-    found = contradictory.lookup(DamageKind.DENT, PanelKind.PRESSURISED_SKIN, Region.OPEN_FIELD)
-    assert found.limits.max_depth == inch("0.008")
+    found = contradictory.lookup(DamageKind.DENT, PanelKind.WING_LOWER, Region.OPEN_FIELD)
+    assert found.limits.max_depth == inch("0.010")
 
 
 def test_a_table_says_whether_it_could_answer_at_all():
