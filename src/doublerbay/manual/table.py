@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 from doublerbay.damage.kind import DamageKind
 from doublerbay.errors import BadReading, NotOnFile
+from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.model import Effectivity
 from doublerbay.grid.ata import Reference
 from doublerbay.manual.limits import LimitSet
@@ -119,6 +120,18 @@ class LimitTable:
 
     def has_a_row_for(self, damage: DamageKind, panel: PanelKind, region: Region) -> bool:
         return bool(self.candidates(damage, panel, region))
+
+    def effective_for(self, aircraft: Aircraft) -> LimitTable:
+        """The same table with the rows that do not apply to this tail taken out.
+
+        A row written for a block of serials looks like an answer on a tail
+        outside it, so the filtering happens before the lookup rather than
+        being checked afterwards by whoever remembers to.
+        """
+        applicable = tuple(row for row in self.rows if aircraft.covered_by(row.effectivity))
+        if not applicable:
+            raise NotOnFile(f"{self.reference} has no rows that apply to {aircraft.serial}")
+        return LimitTable(self.reference, self.revision, applicable)
 
     def kinds_covered(self) -> frozenset[DamageKind]:
         return frozenset(row.key.damage_kind for row in self.rows)
