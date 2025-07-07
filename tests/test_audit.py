@@ -1,17 +1,11 @@
 import sample
+from doublerbay.complaints import Complaint, Severity, blocking
 from doublerbay.grid.lattice import Frame, Stringer
 from doublerbay.grid.surface import Offset
 from doublerbay.grid.zone import Side
 from doublerbay.measure.length import Length
 from doublerbay.structure.airframe import Airframe
-from doublerbay.structure.audit import (
-    Complaint,
-    Severity,
-    audit_airframe,
-    audit_wing_box,
-    blocking,
-    grid_bays,
-)
+from doublerbay.structure.audit import audit_airframe, audit_wing_box, grid_bays
 from doublerbay.structure.build import PanelBuild
 from doublerbay.structure.cutout import Cutout, CutoutKind
 from doublerbay.structure.joint import Joint, JointKind
@@ -120,8 +114,8 @@ def test_blocking_filters_out_the_advice():
 
 def test_complaints_come_back_sorted_with_the_blocking_ones_first():
     complaints = audit_airframe(sample.airframe())
-    severities = [c.severity for c in complaints]
-    assert severities == sorted(severities, key=lambda severity: severity.value)
+    ranks = [c.severity.rank for c in complaints]
+    assert ranks == sorted(ranks)
 
 
 def test_a_complaint_reads_back_what_it_is_about():

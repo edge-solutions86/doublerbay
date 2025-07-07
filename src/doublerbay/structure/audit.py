@@ -9,47 +9,22 @@ panel the search happened to reach first, which nobody notices at all.
 
 So it is worth walking the whole thing once and saying what does not add up.
 The complaints come out sorted, blocking ones first, and a definition with a
-blocking complaint in it is not one to disposition damage against.
+blocking complaint in it is not one to disposition damage against. The two
+types they come back as are shared with the manual audit, which asks the same
+kind of question about a different document.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterator
-from dataclasses import dataclass
-from enum import Enum
 
+from doublerbay.complaints import Complaint, Severity, sorted_complaints
 from doublerbay.grid.lattice import Bay, Frame, Stringer
 from doublerbay.grid.zone import Side
 from doublerbay.structure.airframe import Airframe
 from doublerbay.structure.grid import FuselageGrid
 from doublerbay.structure.wingbox import WingBox
-
-
-class Severity(Enum):
-    """Whether a complaint stops the definition being used."""
-
-    BLOCKING = "blocking"
-    ADVISORY = "advisory"
-
-    @property
-    def stops_work(self) -> bool:
-        return self is Severity.BLOCKING
-
-    def __str__(self) -> str:
-        return self.value
-
-
-@dataclass(frozen=True, slots=True)
-class Complaint:
-    """One thing the definition says that it should not."""
-
-    severity: Severity
-    about: str
-    says: str
-
-    def __str__(self) -> str:
-        return f"[{self.severity}] {self.about}: {self.says}"
 
 
 def _sided(stringer: Stringer, side: Side) -> Stringer:
@@ -178,7 +153,7 @@ def audit_airframe(airframe: Airframe) -> tuple[Complaint, ...]:
         for bay in grid_bays(airframe.grid, side):
             if bay not in covered:
                 found.append(Complaint(Severity.ADVISORY, str(bay), "no panel covers this bay"))
-    return tuple(sorted(found, key=lambda complaint: (complaint.severity.value, complaint.about)))
+    return sorted_complaints(found)
 
 
 def audit_wing_box(box: WingBox) -> tuple[Complaint, ...]:
@@ -208,8 +183,4 @@ def audit_wing_box(box: WingBox) -> tuple[Complaint, ...]:
                     f"{count} panels claim this rib bay",
                 )
             )
-    return tuple(sorted(found, key=lambda complaint: (complaint.severity.value, complaint.about)))
-
-
-def blocking(complaints: tuple[Complaint, ...]) -> tuple[Complaint, ...]:
-    return tuple(complaint for complaint in complaints if complaint.severity.stops_work)
+    return sorted_complaints(found)
