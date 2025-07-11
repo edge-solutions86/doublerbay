@@ -9,12 +9,23 @@ find.
 
 from datetime import date
 
+from doublerbay.damage.dent import Dent
+from doublerbay.damage.finding import Finding
+from doublerbay.damage.kind import DamageKind, DamageOrigin
+from doublerbay.fleet.aircraft import Aircraft
+from doublerbay.fleet.catalogue import TailContext, TypeCatalogue, context_for
+from doublerbay.fleet.check import DiscoverySource
+from doublerbay.fleet.model import Series
+from doublerbay.fleet.register import Fleet
+from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
+from doublerbay.fleet.utilisation import usage as flown
 from doublerbay.grid.coordinate import Station
 from doublerbay.grid.lattice import Frame, Stringer
-from doublerbay.grid.location import FuselagePoint
+from doublerbay.grid.location import FuselagePoint, WingPoint
 from doublerbay.grid.surface import Offset
+from doublerbay.grid.wing import Rib, Spar, Surface
 from doublerbay.grid.zone import Side, Zone
-from doublerbay.ids import PanelId
+from doublerbay.ids import FindingId, PanelId, Registration, Serial
 from doublerbay.measure.fastener import FastenerSize
 from doublerbay.measure.length import Length
 from doublerbay.structure.airframe import Airframe
@@ -156,3 +167,75 @@ def second_patch() -> InstalledDoubler:
 def overlapping() -> PanelBuild:
     """A panel that claims bays the forward upper panel already claims."""
     return PanelBuild(panel=_panel(199, 41, 43, 2, 3), thickness=milled())
+
+
+# The real V320 definition, a tail on it, and cards raised against that tail.
+# Everything above this line is the small hand checkable structure. Everything
+# below it is the transcribed one, for tests that need the real numbers.
+
+MSN = Serial("5127")
+DAY = date(2025, 3, 14)
+
+
+def aircraft(serial: str = "5127", series: Series = Series.STANDARD) -> Aircraft:
+    return Aircraft(
+        serial=Serial(serial),
+        registration=Registration("N412VD"),
+        series=series,
+        line_number=1140,
+        delivered=date(2016, 4, 12),
+    )
+
+
+def flying_log(serial: str = "5127") -> UtilisationLog:
+    return UtilisationLog(
+        Serial(serial),
+        (
+            Snapshot(date(2024, 1, 1), flown(12000, 21000)),
+            Snapshot(date(2025, 1, 1), flown(13800, 24200)),
+        ),
+    )
+
+
+def register(serial: str = "5127", series: Series = Series.STANDARD) -> Fleet:
+    held = Fleet()
+    held.enrol(aircraft(serial, series), flying_log(serial))
+    return held
+
+
+def tail_context(serial: str = "5127", day: date = DAY) -> TailContext:
+    return context_for(register(serial), TypeCatalogue(), Serial(serial), day)
+
+
+def cabin_point(frame: int = 15, aft: str = "10.000", stringer: int = 6, down: str = "0.000"):
+    """A point in the passenger cabin, on ordinary pressurised skin."""
+    return FuselagePoint(Frame(frame), inch(aft), Stringer(stringer, Side.LEFT), inch(down))
+
+
+def lower_wing_point(rib: int = 2, outboard: str = "6.000", aft: str = "20.000"):
+    return WingPoint(Rib(rib, Side.LEFT), inch(outboard), Spar.FRONT, inch(aft), Surface.LOWER)
+
+
+def card(
+    sequence: int = 1,
+    kind: DamageKind = DamageKind.DENT,
+    geometry=None,
+    at=None,
+    serial: str = "5127",
+    found: date = DAY,
+    origin: DamageOrigin = DamageOrigin.IMPACT,
+    source: DiscoverySource = DiscoverySource.SCHEDULED_CHECK,
+) -> Finding:
+    if geometry is None:
+        geometry = Dent(inch("0.020"), inch("3.000"), inch("2.000"))
+    return Finding(
+        reference=FindingId(2025, sequence),
+        serial=Serial(serial),
+        kind=kind,
+        geometry=geometry,
+        point=at if at is not None else cabin_point(),
+        found_on=found,
+        source=source,
+        origin=origin,
+        at_usage=flown(13900, 24400),
+    )
