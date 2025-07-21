@@ -127,16 +127,22 @@ def test_a_kind_with_no_depth_runs_no_depth_check():
     assert depth_check(case(finding=cracked, limits=LimitSet(max_depth=inch("0.010")))) is None
 
 
-def test_the_residual_floor_is_measured_on_what_is_left_under_the_damage():
-    checked = residual_check(
-        case(finding=scratch("0.002"), limits=LimitSet(min_residual_fraction=Ratio("0.90")))
-    )
-    assert checked.passed
-    over = residual_check(
-        case(finding=scratch("0.010"), limits=LimitSet(min_residual_fraction=Ratio("0.90")))
-    )
+def test_the_residual_floor_is_measured_on_what_the_cleanup_would_leave():
+    floor = LimitSet(min_residual_fraction=Ratio("0.80"))
+    assert residual_check(case(finding=scratch("0.002"), limits=floor)).passed
+    over = residual_check(case(finding=scratch("0.010"), limits=floor))
     assert not over.passed
     assert over.outcome is Disposition.REPAIRABLE
+
+
+def test_the_cleanup_cuts_below_the_bottom_of_the_damage():
+    shallow = case(finding=scratch("0.002"))
+    assert shallow.cut_depth == shallow.depth + inch("0.002")
+
+
+def test_a_kind_that_cannot_be_blended_is_cut_no_deeper_than_the_damage():
+    solid = case(finding=dent("0.020"))
+    assert solid.cut_depth == solid.depth
 
 
 def test_a_sharp_dent_fails_the_sharpness_check():

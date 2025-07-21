@@ -120,9 +120,9 @@ def _dent_rows(revision: int) -> list[LimitRow]:
 def _score_rows() -> list[LimitRow]:
     rows: list[LimitRow] = []
     for kind, share, residual in (
-        (DamageKind.SCRATCH, "0.10", "0.90"),
-        (DamageKind.GOUGE, "0.08", "0.92"),
-        (DamageKind.NICK, "0.10", "0.90"),
+        (DamageKind.SCRATCH, "0.10", "0.80"),
+        (DamageKind.GOUGE, "0.08", "0.82"),
+        (DamageKind.NICK, "0.10", "0.80"),
     ):
         rows.append(
             LimitRow(
@@ -141,7 +141,7 @@ def _score_rows() -> list[LimitRow]:
                 LimitKey(kind, PanelKind.PRESSURISED_SKIN),
                 LimitSet(
                     max_depth_fraction=Ratio("0.05"),
-                    min_residual_fraction=Ratio("0.95"),
+                    min_residual_fraction=Ratio("0.85"),
                     min_edge_margin_diameters=TWO_DIAMETERS,
                     blend_taper=BLEND,
                 ),
@@ -161,7 +161,7 @@ def _corrosion_rows() -> list[LimitRow]:
             LimitKey(DamageKind.CORROSION),
             LimitSet(
                 max_depth_fraction=Ratio("0.10"),
-                min_residual_fraction=Ratio("0.90"),
+                min_residual_fraction=Ratio("0.80"),
                 max_area=Decimal("6.00"),
                 blend_taper=Taper(30),
             ),
@@ -171,7 +171,7 @@ def _corrosion_rows() -> list[LimitRow]:
             LimitKey(DamageKind.CORROSION, PanelKind.PRESSURISED_SKIN),
             LimitSet(
                 max_depth_fraction=Ratio("0.05"),
-                min_residual_fraction=Ratio("0.95"),
+                min_residual_fraction=Ratio("0.85"),
                 max_area=Decimal("4.00"),
                 blend_taper=Taper(30),
             ),

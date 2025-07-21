@@ -59,8 +59,8 @@ NOTHING_ALLOWED_IN = (Region.FASTENER_ROW, Region.CUTOUT_CORNER, Region.CHEM_MIL
 # Depth caps and residual floors, by surface. The lower surface is the tension
 # one and it gets half of what the upper gets.
 SURFACE_LIMITS: dict[PanelKind, tuple[str, str, str]] = {
-    PanelKind.WING_UPPER: ("0.05", "0.95", "0.010"),
-    PanelKind.WING_LOWER: ("0.025", "0.975", "0.005"),
+    PanelKind.WING_UPPER: ("0.05", "0.88", "0.010"),
+    PanelKind.WING_LOWER: ("0.025", "0.94", "0.005"),
 }
 
 
@@ -115,7 +115,7 @@ def _score_rows() -> list[LimitRow]:
                 LimitSet(
                     max_depth=Length.of_inches("0.005"),
                     max_depth_fraction=Ratio("0.025"),
-                    min_residual_fraction=Ratio("0.975"),
+                    min_residual_fraction=Ratio("0.94"),
                     min_edge_margin_diameters=TWO_AND_A_HALF_DIAMETERS,
                     blend_taper=BLEND,
                 ),
@@ -135,7 +135,7 @@ def _corrosion_rows() -> list[LimitRow]:
             LimitKey(DamageKind.CORROSION, PanelKind.WING_UPPER),
             LimitSet(
                 max_depth_fraction=Ratio("0.05"),
-                min_residual_fraction=Ratio("0.95"),
+                min_residual_fraction=Ratio("0.88"),
                 max_area=Decimal("3.00"),
                 blend_taper=BLEND,
             ),
@@ -145,7 +145,7 @@ def _corrosion_rows() -> list[LimitRow]:
             LimitKey(DamageKind.CORROSION, PanelKind.WING_LOWER),
             LimitSet(
                 max_depth_fraction=Ratio("0.025"),
-                min_residual_fraction=Ratio("0.975"),
+                min_residual_fraction=Ratio("0.94"),
                 max_area=Decimal("1.50"),
                 blend_taper=BLEND,
             ),
@@ -155,7 +155,7 @@ def _corrosion_rows() -> list[LimitRow]:
             LimitKey(DamageKind.CORROSION),
             LimitSet(
                 max_depth_fraction=Ratio("0.025"),
-                min_residual_fraction=Ratio("0.975"),
+                min_residual_fraction=Ratio("0.94"),
                 max_area=Decimal("1.50"),
                 blend_taper=BLEND,
             ),

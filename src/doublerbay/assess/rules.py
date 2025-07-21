@@ -69,6 +69,12 @@ class Case:
         return self.finding.geometry.limit_depth()
 
     @property
+    def cut_depth(self) -> Length | None:
+        """How deep a cleanup would go, which is past the bottom of the damage."""
+        depth = self.depth
+        return None if depth is None else self.cleanup.cut_depth(depth)
+
+    @property
     def can_be_blended_here(self) -> bool:
         """Whether grinding is on the table at all, given the kind and the region."""
         return self.cleanup.allowed_in(self.placement.region)
@@ -110,13 +116,19 @@ def depth_check(case: Case) -> Check | None:
 
 
 def residual_check(case: Case) -> Check | None:
-    """What would be left under the damage, against the floor the page sets."""
-    depth = case.depth
+    """What a cleanup would leave behind, against the floor the page sets.
+
+    This is the rework limit and not the as is limit, so it is deliberately
+    looser than the depth cap and it is measured on the cut rather than on the
+    damage. A blend goes past the bottom of a scratch to get the worked metal
+    out, and that extra is what decides whether grinding is worth starting.
+    """
+    depth = case.cut_depth
     floor = case.limits.residual_floor(case.thickness)
     if depth is None or floor is None:
         return None
     left = case.thickness - depth
-    detail = f"{left.inches} left against a floor of {floor.inches}"
+    detail = f"{left.inches} left after a cleanup against a floor of {floor.inches}"
     if left >= floor:
         return Check(_pass("residual", detail), Disposition.REPAIRABLE)
     return Check(_fail("residual", detail), Disposition.REPAIRABLE)
@@ -170,8 +182,18 @@ def area_check(case: Case) -> Check | None:
 
 
 def edge_margin_check(case: Case) -> Check | None:
-    """Distance to the nearest edge, which no amount of grinding improves."""
-    floor = case.limits.edge_margin_floor(case.placement.nearest_fastener)
+    """Distance to the nearest edge, which no amount of grinding improves.
+
+    An edge margin written in diameters is a distance to fasteners, so it says
+    nothing at all in the middle of a bay where there are none. The rule stands
+    aside there rather than inventing a fastener size to read it with.
+    """
+    floor: Length | None
+    in_diameters = case.limits.min_edge_margin_diameters is not None
+    if in_diameters and case.placement.nearest_fastener is None:
+        floor = case.limits.min_edge_margin
+    else:
+        floor = case.limits.edge_margin_floor(case.placement.nearest_fastener)
     if floor is None:
         return None
     margin = case.placement.edge_margin
