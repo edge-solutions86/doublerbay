@@ -101,6 +101,19 @@ def next_heavier(wanted: Length) -> SheetGauge:
     raise BadReading(f"{wanted} is heavier than any stocked sheet")
 
 
+def one_step_heavier(nominal: Length) -> SheetGauge:
+    """The next rung strictly above a gauge, which is what a doubler is cut from.
+
+    Not the same as next_heavier, which hands back the gauge itself when it is
+    already on the ladder. A doubler the same gauge as the skin it covers is
+    not a doubler.
+    """
+    for rung in STOCK_LADDER:
+        if rung.nominal > nominal:
+            return rung
+    raise BadReading(f"{nominal} is the heaviest stocked sheet")
+
+
 def nearest(wanted: Length) -> SheetGauge:
     """The rung closest to what was asked for, breaking a tie upwards."""
     best = STOCK_LADDER[0]
