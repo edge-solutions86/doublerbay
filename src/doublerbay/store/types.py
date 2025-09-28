@@ -67,10 +67,16 @@ class _TextId(TypeDecorator[Any]):
 
     impl = String
     cache_ok = True
-    length = 32
+    default_length = 32
 
-    def __init__(self) -> None:
-        super().__init__(self.length)
+    def __init__(self, length: int | None = None) -> None:
+        """Take a length so a generated migration can hand one back.
+
+        Alembic renders a column as its type called with the arguments it was
+        built with, so a type that will not accept its own length cannot be
+        put in a migration file.
+        """
+        super().__init__(length or self.default_length)
 
     def parse(self, text: str) -> Any:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -86,7 +92,7 @@ class SerialColumn(_TextId):
     """A manufacturer serial number, stored without the MSN prefix it prints with."""
 
     cache_ok = True
-    length = 8
+    default_length = 8
 
     def process_bind_param(self, value: Serial | None, dialect: Dialect) -> str | None:
         return None if value is None else value.number
@@ -97,7 +103,7 @@ class SerialColumn(_TextId):
 
 class RegistrationColumn(_TextId):
     cache_ok = True
-    length = 8
+    default_length = 8
 
     def parse(self, text: str) -> Registration:
         return Registration(text)
@@ -105,7 +111,7 @@ class RegistrationColumn(_TextId):
 
 class FindingIdColumn(_TextId):
     cache_ok = True
-    length = 16
+    default_length = 16
 
     def parse(self, text: str) -> FindingId:
         return FindingId.parse(text)
@@ -113,7 +119,7 @@ class FindingIdColumn(_TextId):
 
 class RepairIdColumn(_TextId):
     cache_ok = True
-    length = 16
+    default_length = 16
 
     def parse(self, text: str) -> RepairId:
         return RepairId.parse(text)
@@ -121,7 +127,7 @@ class RepairIdColumn(_TextId):
 
 class PanelIdColumn(_TextId):
     cache_ok = True
-    length = 16
+    default_length = 16
 
     def parse(self, text: str) -> PanelId:
         return PanelId.parse(text)

@@ -12,6 +12,7 @@ license = { text = "Proprietary" }
 authors = [{ name = "rkaushik-dev" }]
 dependencies = [
   "SQLAlchemy==2.0.38",
+  "alembic==1.14.1",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,11 @@ select = ["E", "F", "I", "B", "UP", "C4", "SIM", "RET"]
 # A test that a refusal happens has to evaluate the offending expression on
 # its own, which reads as a pointless comparison or a useless attribute.
 "tests/*" = ["B015", "B018"]
+# A migration is generated, and its column definitions read as one line each.
+# Wrapping one makes it harder to compare against the model it came from.
+"migrations/*" = ["E501"]
+# The environment registers every table by star import, which is the point of it.
+"migrations/env.py" = ["E501", "F401", "F403"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["doublerbay"]
