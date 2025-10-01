@@ -13,11 +13,15 @@ authors = [{ name = "rkaushik-dev" }]
 dependencies = [
   "SQLAlchemy==2.0.38",
   "alembic==1.14.1",
+  "fastapi==0.115.8",
+  "pydantic==2.10.6",
+  "uvicorn[standard]==0.34.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest==8.3.4",
+  "httpx==0.28.1",
   "ruff==0.9.6",
   "mypy==1.15.0",
 ]
@@ -29,6 +33,11 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
 addopts = "-q"
+filterwarnings = [
+  # Starlette's test client still reaches for an anyio alias anyio has
+  # deprecated. Not ours to fix and not worth reading on every run.
+  "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100
@@ -47,6 +56,9 @@ select = ["E", "F", "I", "B", "UP", "C4", "SIM", "RET"]
 "migrations/*" = ["E501"]
 # The environment registers every table by star import, which is the point of it.
 "migrations/env.py" = ["E501", "F401", "F403"]
+# Routes declare their query parameters and bodies as call defaults. That is
+# the framework calling convention and there is no other way to write it.
+"src/doublerbay/api/*" = ["B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["doublerbay"]

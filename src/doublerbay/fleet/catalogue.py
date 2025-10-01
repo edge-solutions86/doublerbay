@@ -58,6 +58,10 @@ class TypeCatalogue:
     def carries(self, series: Series) -> bool:
         return series in self._frames
 
+    def series(self) -> tuple[Series, ...]:
+        """Every series there is a structure definition on file for."""
+        return tuple(sorted(self._frames, key=lambda one: one.value))
+
     def definition_for(self, series: Series) -> TypeDefinition:
         try:
             frames = self._frames[series]
