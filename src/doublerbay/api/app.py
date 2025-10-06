@@ -78,6 +78,12 @@ def build_app(deps: Deps) -> FastAPI:
     async def _refused(request: Request, error: DoublerbayError) -> JSONResponse:
         return JSONResponse(status_code=status_for(error), content=problem_of(error).model_dump())
 
+    from doublerbay.api import findings
+
+    app.include_router(findings.router)
+    app.include_router(findings.kinds)
+    app.include_router(findings.tails)
+
     @app.get("/health", tags=["service"])
     async def health() -> dict[str, str]:
         """Whether the service is up and what it is reading."""

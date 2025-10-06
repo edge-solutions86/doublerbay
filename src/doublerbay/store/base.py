@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Engine, MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 NAMING = {
     "ix": "ix_%(column_0_label)s",
@@ -44,7 +45,21 @@ class Recorded:
 
 
 def build_engine(url: str = IN_MEMORY, echo: bool = False) -> Engine:
-    """Open an engine. Called explicitly so importing this package opens nothing."""
+    """Open an engine. Called explicitly so importing this package opens nothing.
+
+    An in memory database lives inside its connection, so the default pool
+    hands a second caller an empty one. Anything running the service in a
+    thread, which every test client does, then finds no tables at all. One
+    shared connection is the only thing that behaves like a database there.
+    """
+    if url == IN_MEMORY:
+        return create_engine(
+            url,
+            echo=echo,
+            future=True,
+            poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+        )
     return create_engine(url, echo=echo, future=True)
 
 
