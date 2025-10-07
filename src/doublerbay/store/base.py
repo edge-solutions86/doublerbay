@@ -63,12 +63,25 @@ def build_engine(url: str = IN_MEMORY, echo: bool = False) -> Engine:
     return create_engine(url, echo=echo, future=True)
 
 
+def load_models() -> None:
+    """Import the table modules so the metadata knows what it is describing.
+
+    A table registers itself on the metadata when its module is imported and
+    not before, so a caller that has only imported this module gets an empty
+    schema built without a word of complaint. Every entry point that touches
+    the metadata calls this first.
+    """
+    from doublerbay.store import tables, work  # noqa: F401
+
+
 def build_schema(engine: Engine) -> None:
     """Create every table, for tests and for a first run against an empty file."""
+    load_models()
     Base.metadata.create_all(engine)
 
 
 def drop_schema(engine: Engine) -> None:
+    load_models()
     Base.metadata.drop_all(engine)
 
 
@@ -92,4 +105,5 @@ def opened(engine: Engine) -> Iterator[Session]:
 
 def table_names() -> tuple[str, ...]:
     """Every table the schema defines, in the order they would be created."""
+    load_models()
     return tuple(table.name for table in Base.metadata.sorted_tables)
