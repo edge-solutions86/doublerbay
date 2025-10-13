@@ -14,7 +14,7 @@ def client():
     engine = build_engine()
     build_schema(engine)
     built = build_app(Deps(engine=engine, book=v320_book(), catalogue=TypeCatalogue(), today=DAY))
-    return TestClient(built)
+    return TestClient(built, headers={"x-api-key": "chief-key-0001"})
 
 
 def tail_body(serial="5127", marks="N412VD", series="200"):

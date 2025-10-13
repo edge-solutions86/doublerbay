@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
+from doublerbay.api.security import KeyRing, open_ring
 from doublerbay.errors import BadReading, DoublerbayError, NotOnFile, OutOfSequence, Refused
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.manual.book import Book, v320_book
@@ -52,6 +53,7 @@ class Deps:
     book: Book
     catalogue: TypeCatalogue
     today: date | None = None
+    keys: KeyRing | None = None
 
     def on(self) -> date:
         """The day a request is answered as of, which tests pin and production does not."""
@@ -73,6 +75,7 @@ def build_app(deps: Deps) -> FastAPI:
     """Build the application with its dependencies handed in rather than imported."""
     app = FastAPI(title=TITLE, version=VERSION)
     app.state.deps = deps
+    app.state.keys = deps.keys if deps.keys is not None else open_ring()
 
     @app.exception_handler(DoublerbayError)
     async def _refused(request: Request, error: DoublerbayError) -> JSONResponse:

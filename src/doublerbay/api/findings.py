@@ -24,6 +24,7 @@ from doublerbay.api.schemas import (
     finding_out,
     measurements_in,
 )
+from doublerbay.api.security import Action, require
 from doublerbay.damage.kind import DamageKind
 from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.ids import FindingId, Serial
@@ -60,7 +61,9 @@ class RaisedOut(BaseModel):
 
 
 @router.post("", response_model=RaisedOut, status_code=201)
-async def raise_finding(body: FindingIn, deps=Depends(deps)) -> RaisedOut:
+async def raise_finding(
+    body: FindingIn, deps=Depends(deps), key=Depends(require(Action.RAISE_CARD))
+) -> RaisedOut:
     """Raise a damage card, allocating its number and opening its disposition."""
     with UnitOfWork(deps.engine) as unit:
         reference = unit.findings.next_reference(body.found_on.year)
@@ -85,7 +88,12 @@ async def read_history(reference: str, deps=Depends(deps)) -> list[FindingOut]:
 
 
 @router.post("/{reference}/revisions", response_model=FindingOut, status_code=201)
-async def re_measure(reference: str, body: RevisionIn, deps=Depends(deps)) -> FindingOut:
+async def re_measure(
+    reference: str,
+    body: RevisionIn,
+    deps=Depends(deps),
+    key=Depends(require(Action.RAISE_CARD)),
+) -> FindingOut:
     """Record a re measurement, which is a new revision of the same card."""
     with UnitOfWork(deps.engine) as unit:
         current = unit.findings.latest(reference_from(reference))
@@ -96,7 +104,12 @@ async def re_measure(reference: str, body: RevisionIn, deps=Depends(deps)) -> Fi
 
 
 @router.post("/{reference}/supersede", response_model=FindingOut)
-async def supersede(reference: str, body: SupersedeIn, deps=Depends(deps)) -> FindingOut:
+async def supersede(
+    reference: str,
+    body: SupersedeIn,
+    deps=Depends(deps),
+    key=Depends(require(Action.DISPOSITION)),
+) -> FindingOut:
     """Close a card because another one now carries the damage."""
     with UnitOfWork(deps.engine) as unit:
         replacement = reference_from(body.by)

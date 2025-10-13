@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from doublerbay.api.findings import deps
 from doublerbay.api.schemas import AircraftIn, AircraftOut, UsageIn, UsageOut, aircraft_out
+from doublerbay.api.security import Action, require
 from doublerbay.fleet.forecast import Forecast
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
 from doublerbay.ids import Registration, Serial
@@ -64,7 +65,9 @@ def reading_out(snapshot: Snapshot) -> ReadingOut:
 
 
 @router.post("", response_model=AircraftOut, status_code=201)
-async def enrol(body: AircraftIn, deps=Depends(deps)) -> AircraftOut:
+async def enrol(
+    body: AircraftIn, deps=Depends(deps), key=Depends(require(Action.AMEND_FLEET))
+) -> AircraftOut:
     """Put a tail on the register and open its log at delivery."""
     aircraft = body.to_domain()
     with UnitOfWork(deps.engine) as unit:
@@ -100,7 +103,12 @@ async def read_by_marks(marks: str, deps=Depends(deps)) -> AircraftOut:
 
 
 @router.post("/{serial}/readings", response_model=UtilisationOut, status_code=201)
-async def post_reading(serial: str, body: ReadingIn, deps=Depends(deps)) -> UtilisationOut:
+async def post_reading(
+    serial: str,
+    body: ReadingIn,
+    deps=Depends(deps),
+    key=Depends(require(Action.POST_READING)),
+) -> UtilisationOut:
     """Post a counter reading, refusing one that runs a counter backwards."""
     held = Serial(serial)
     with UnitOfWork(deps.engine) as unit:

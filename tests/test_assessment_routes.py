@@ -19,7 +19,7 @@ def client():
         unit.aircraft.add(sample.aircraft())
         unit.aircraft.open_log(sample.flying_log())
     built = build_app(Deps(engine=engine, book=v320_book(), catalogue=TypeCatalogue(), today=DAY))
-    return TestClient(built)
+    return TestClient(built, headers={"x-api-key": "chief-key-0001"})
 
 
 def card_body(depth="0.010", along="6.000", around="4.000", stringer=10, aft="10.000"):
