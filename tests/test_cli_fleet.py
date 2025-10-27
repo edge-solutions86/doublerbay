@@ -1,6 +1,7 @@
 from click.testing import CliRunner
 
-from doublerbay.cli.main import as_date, cli, columns
+from doublerbay.cli.main import cli
+from doublerbay.cli.output import as_date, columns
 from doublerbay.store.base import build_engine, build_schema
 
 

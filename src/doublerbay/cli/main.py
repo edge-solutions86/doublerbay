@@ -13,11 +13,10 @@ ends up with a locked row nobody can explain.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from datetime import date, datetime
-
 import click
 
+from doublerbay.cli.cards import cards
+from doublerbay.cli.output import as_date, columns
 from doublerbay.errors import DoublerbayError
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.forecast import Forecast
@@ -27,24 +26,6 @@ from doublerbay.ids import Registration, Serial
 from doublerbay.measure.usage import Cycles, Hours, Usage
 from doublerbay.store.base import IN_MEMORY, build_engine, build_schema, table_names
 from doublerbay.store.unit import UnitOfWork
-
-DATE_FORMAT = "%Y-%m-%d"
-
-
-def as_date(text: str) -> date:
-    return datetime.strptime(text, DATE_FORMAT).date()
-
-
-def columns(rows: Iterable[Iterable[str]]) -> str:
-    """Lay rows out in columns wide enough for what is in them."""
-    laid = [list(row) for row in rows]
-    if not laid:
-        return ""
-    widths = [max(len(row[index]) for row in laid) for index in range(len(laid[0]))]
-    return "\n".join(
-        "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=False)).rstrip()
-        for row in laid
-    )
 
 
 @click.group()
@@ -149,6 +130,9 @@ def fleet_post(context: click.Context, serial: str, taken: str, cycles: int, hou
     with UnitOfWork(context.obj["engine"]) as unit:
         unit.aircraft.post_reading(Serial(serial), reading)
     click.echo(f"posted {reading}")
+
+
+cli.add_command(cards)
 
 
 def run() -> None:
