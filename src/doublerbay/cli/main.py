@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import click
 
+from doublerbay.cli.assessing import assess_card, assess_tail
 from doublerbay.cli.cards import cards
 from doublerbay.cli.output import as_date, columns
 from doublerbay.errors import DoublerbayError
@@ -133,6 +134,8 @@ def fleet_post(context: click.Context, serial: str, taken: str, cycles: int, hou
 
 
 cli.add_command(cards)
+cli.add_command(assess_card)
+cli.add_command(assess_tail)
 
 
 def run() -> None:
