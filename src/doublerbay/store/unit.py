@@ -21,6 +21,7 @@ from doublerbay.errors import OutOfSequence
 from doublerbay.store.base import session_factory
 from doublerbay.store.repository import (
     AircraftRepository,
+    DeferralRepository,
     DispositionRepository,
     FindingRepository,
 )
@@ -68,6 +69,10 @@ class UnitOfWork:
     @property
     def dispositions(self) -> DispositionRepository:
         return DispositionRepository(self._open())
+
+    @property
+    def deferrals(self) -> DeferralRepository:
+        return DeferralRepository(self._open())
 
     def flush(self) -> None:
         """Push the writes down so a later read in the same block sees them."""

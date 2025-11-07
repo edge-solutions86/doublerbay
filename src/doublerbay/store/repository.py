@@ -20,11 +20,13 @@ from sqlalchemy.orm import Session
 
 from doublerbay.damage.finding import Finding
 from doublerbay.damage.kind import DamageKind
+from doublerbay.disposition.deferral import Deferral
 from doublerbay.disposition.state import DispositionRecord
 from doublerbay.errors import BadReading, NotOnFile
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
 from doublerbay.ids import FindingId, Registration, Serial
+from doublerbay.store.decisions import apply_to_row, deferral_to_row, row_to_deferral
 from doublerbay.store.mapping import (
     aircraft_to_row,
     disposition_to_row,
@@ -42,6 +44,7 @@ from doublerbay.store.tables import (
     MoveRow,
     ReadingRow,
 )
+from doublerbay.store.work import DeferralRow
 
 
 class AircraftRepository:
@@ -230,3 +233,66 @@ class DispositionRepository:
             select(DispositionRow).order_by(DispositionRow.reference)
         ).scalars()
         return tuple(row_to_disposition(row) for row in rows)
+
+
+class DeferralRepository:
+    """Deferrals, one live one per card, keyed on the card it is against."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def grant(self, deferral: Deferral) -> None:
+        """Record a deferral, refusing a second live one against the same card."""
+        row = self._row(deferral.against)
+        if row is not None and row.lifted is None:
+            raise BadReading(f"{deferral.against} is already deferred")
+        if row is not None:
+            self._session.delete(row)
+            self._session.flush()
+        self._session.add(deferral_to_row(deferral))
+
+    def tighten(self, deferral: Deferral) -> None:
+        """Amend the live deferral against a card to a shorter limit."""
+        apply_to_row(self._live(deferral.against), deferral)
+
+    def lift(self, reference: FindingId, on: date) -> None:
+        """Close a deferral because the damage under it has been dealt with."""
+        row = self._live(reference)
+        if on < row.granted:
+            raise BadReading(f"{reference}: a deferral cannot be lifted before it was granted")
+        row.lifted = on
+
+    def get(self, reference: FindingId) -> Deferral:
+        return row_to_deferral(self._live(reference))
+
+    def live(self) -> tuple[Deferral, ...]:
+        """Every deferral still being flown against."""
+        rows = self._session.scalars(
+            select(DeferralRow).where(DeferralRow.lifted.is_(None)).order_by(DeferralRow.granted)
+        ).all()
+        return tuple(row_to_deferral(row) for row in rows)
+
+    def against(self, references: tuple[FindingId, ...]) -> tuple[Deferral, ...]:
+        """The live deferrals against a named set of cards, in the order asked for."""
+        held = {one.against: one for one in self.live()}
+        return tuple(held[reference] for reference in references if reference in held)
+
+    def granted_between(self, start: date, end: date) -> tuple[Deferral, ...]:
+        """Everything granted in a window, lifted or not, for the monthly report."""
+        if end < start:
+            raise BadReading("a window ends after it starts")
+        rows = self._session.scalars(
+            select(DeferralRow)
+            .where(DeferralRow.granted >= start, DeferralRow.granted <= end)
+            .order_by(DeferralRow.granted)
+        ).all()
+        return tuple(row_to_deferral(row) for row in rows)
+
+    def _row(self, reference: FindingId) -> DeferralRow | None:
+        return self._session.get(DeferralRow, reference)
+
+    def _live(self, reference: FindingId) -> DeferralRow:
+        row = self._row(reference)
+        if row is None or row.lifted is not None:
+            raise NotOnFile(f"{reference} is not deferred")
+        return row
