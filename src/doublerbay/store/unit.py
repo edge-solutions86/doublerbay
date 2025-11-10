@@ -24,6 +24,7 @@ from doublerbay.store.repository import (
     DeferralRepository,
     DispositionRepository,
     FindingRepository,
+    RepairRepository,
 )
 
 
@@ -73,6 +74,10 @@ class UnitOfWork:
     @property
     def deferrals(self) -> DeferralRepository:
         return DeferralRepository(self._open())
+
+    @property
+    def repairs(self) -> RepairRepository:
+        return RepairRepository(self._open())
 
     def flush(self) -> None:
         """Push the writes down so a later read in the same block sees them."""

@@ -25,8 +25,15 @@ from doublerbay.disposition.state import DispositionRecord
 from doublerbay.errors import BadReading, NotOnFile
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
-from doublerbay.ids import FindingId, Registration, Serial
-from doublerbay.store.decisions import apply_to_row, deferral_to_row, row_to_deferral
+from doublerbay.ids import FindingId, PanelId, Registration, RepairId, Serial
+from doublerbay.repair.record import RepairRecord, clashes
+from doublerbay.store.decisions import (
+    apply_to_row,
+    deferral_to_row,
+    repair_to_row,
+    row_to_deferral,
+    row_to_repair,
+)
 from doublerbay.store.mapping import (
     aircraft_to_row,
     disposition_to_row,
@@ -44,7 +51,7 @@ from doublerbay.store.tables import (
     MoveRow,
     ReadingRow,
 )
-from doublerbay.store.work import DeferralRow
+from doublerbay.store.work import DeferralRow, RepairRow
 
 
 class AircraftRepository:
@@ -296,3 +303,76 @@ class DeferralRepository:
         if row is None or row.lifted is not None:
             raise NotOnFile(f"{reference} is not deferred")
         return row
+
+
+class RepairRepository:
+    """Repairs, keyed on their own number and read back by tail or by panel."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def embody(self, record: RepairRecord, serial: Serial) -> None:
+        """Record a repair as fitted to one tail, refusing a number already used."""
+        if self._session.get(RepairRow, record.reference) is not None:
+            raise BadReading(f"{record.reference} is already on file")
+        self._session.add(repair_to_row(record, serial))
+
+    def get(self, reference: RepairId) -> RepairRecord:
+        row = self._session.get(RepairRow, reference)
+        if row is None:
+            raise NotOnFile(f"{reference} is not a repair on file")
+        return row_to_repair(row)
+
+    def remove(self, reference: RepairId, on: date) -> None:
+        """Mark a repair as taken off, which is not the same as deleting it."""
+        row = self._session.get(RepairRow, reference)
+        if row is None:
+            raise NotOnFile(f"{reference} is not a repair on file")
+        if row.removed is not None:
+            raise BadReading(f"{reference} was already removed on {row.removed}")
+        if on < row.embodied:
+            raise BadReading(f"{reference} cannot come off before it went on")
+        row.removed = on
+
+    def on_tail(self, serial: Serial, fitted_only: bool = True) -> tuple[RepairRecord, ...]:
+        """Every repair on one aeroplane, still fitted or ever fitted."""
+        query = select(RepairRow).where(RepairRow.serial == serial)
+        if fitted_only:
+            query = query.where(RepairRow.removed.is_(None))
+        rows = self._session.scalars(query.order_by(RepairRow.embodied)).all()
+        return tuple(row_to_repair(row) for row in rows)
+
+    def on_panel(self, serial: Serial, part: PanelId) -> tuple[RepairRecord, ...]:
+        """Every repair still fitted to one panel of one tail, oldest first.
+
+        The tail is part of the question. A panel number names a part, and
+        asking what is fitted to that part without saying which aeroplane
+        gathers up the whole fleet's repairs into one clash check.
+        """
+        rows = self._session.scalars(
+            select(RepairRow)
+            .where(
+                RepairRow.serial == serial,
+                RepairRow.part == part,
+                RepairRow.removed.is_(None),
+            )
+            .order_by(RepairRow.embodied)
+        ).all()
+        return tuple(row_to_repair(row) for row in rows)
+
+    def against(self, reference: FindingId) -> tuple[RepairRecord, ...]:
+        """Every repair raised against one damage card."""
+        rows = self._session.scalars(
+            select(RepairRow).where(RepairRow.against == reference).order_by(RepairRow.embodied)
+        ).all()
+        return tuple(row_to_repair(row) for row in rows)
+
+    def clashing_on(
+        self, serial: Serial, part: PanelId
+    ) -> tuple[tuple[RepairRecord, RepairRecord], ...]:
+        """Pairs of fitted repairs on one panel that are too close together."""
+        return clashes(self.on_panel(serial, part))
+
+    def needing_inspection(self, serial: Serial) -> tuple[RepairRecord, ...]:
+        """The fitted repairs that carry a repeat inspection."""
+        return tuple(one for one in self.on_tail(serial) if one.needs_inspection)

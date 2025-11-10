@@ -19,10 +19,17 @@ from __future__ import annotations
 
 from doublerbay.disposition.deferral import Deferral
 from doublerbay.errors import BadReading
-from doublerbay.ids import FindingId
+from doublerbay.grid.ata import Reference
+from doublerbay.grid.surface import Offset
+from doublerbay.ids import FindingId, Serial
+from doublerbay.measure.fastener import FastenerSize
 from doublerbay.measure.interval import Interval
 from doublerbay.measure.usage import Usage
-from doublerbay.store.work import DeferralRow
+from doublerbay.repair.doubler import DoublerPlan
+from doublerbay.repair.record import RepairRecord
+from doublerbay.repair.scheme import RepairCategory, RepairForm, RepairScheme
+from doublerbay.store.work import DeferralRow, RepairRow
+from doublerbay.structure.material import material
 from doublerbay.tolerance.method import InspectionMethod
 
 
@@ -89,3 +96,81 @@ def is_lifted(row: DeferralRow) -> bool:
 
 def reference_of(row: DeferralRow) -> FindingId:
     return row.against
+
+
+def repair_to_row(record: RepairRecord, serial: Serial) -> RepairRow:
+    """One repair with its whole drawing on the row.
+
+    The material goes down as the callout a person writes on the drawing
+    rather than as five columns of alloy, temper, clad and two strengths.
+    The strengths belong to the alloy, not to this repair, and a repair that
+    carried its own copy of them would keep whatever the catalogue said on the
+    day it was embodied.
+
+    The tail comes in beside the record because a panel number is a part
+    number. The same part hangs on every aeroplane in the fleet, so the panel
+    does not say which one this repair is on and the record does not either.
+    """
+    scheme = record.scheme
+    plan = scheme.doubler
+    return RepairRow(
+        reference=record.reference,
+        serial=serial,
+        part=record.part,
+        against=record.against,
+        form=scheme.form.value,
+        category=scheme.category.value,
+        sealed=scheme.sealed,
+        page=str(scheme.reference),
+        material=str(plan.material),
+        gauge=plan.gauge,
+        along=plan.along,
+        around=plan.around,
+        filler=scheme.filler,
+        fastener_dash=plan.size.dash,
+        rows_each_side=plan.rows_each_side,
+        per_row=plan.per_row,
+        pitch=plan.pitch,
+        row_spacing=plan.row_spacing,
+        edge_distance=plan.edge_distance,
+        centre_along=record.centre.along,
+        centre_around=record.centre.around,
+        embodied=record.embodied,
+        at_cycles=record.at_usage.cycles,
+        at_hours=record.at_usage.hours,
+        removed=record.removed,
+    )
+
+
+def row_to_repair(row: RepairRow) -> RepairRecord:
+    """Rebuild a repair, taking every number back through its own validation."""
+    plan = DoublerPlan(
+        gauge=row.gauge,
+        material=material(row.material),
+        along=row.along,
+        around=row.around,
+        size=FastenerSize(row.fastener_dash),
+        rows_each_side=row.rows_each_side,
+        per_row=row.per_row,
+        pitch=row.pitch,
+        row_spacing=row.row_spacing,
+        edge_distance=row.edge_distance,
+    )
+    scheme = RepairScheme(
+        form=RepairForm(row.form),
+        category=RepairCategory(row.category),
+        doubler=plan,
+        sealed=row.sealed,
+        reference=Reference.parse(row.page),
+        filler=row.filler,
+    )
+    return RepairRecord(
+        reference=row.reference,
+        part=row.part,
+        against=row.against,
+        scheme=scheme,
+        centre=Offset(row.centre_along, row.centre_around),
+        embodied=row.embodied,
+        at_usage=Usage(row.at_cycles, row.at_hours),
+        removed=row.removed,
+    )
