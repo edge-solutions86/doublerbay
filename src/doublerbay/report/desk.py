@@ -69,7 +69,12 @@ class DueReport:
 def due_on_tail(
     unit: UnitOfWork, serial: Serial, on: date, within_days: int | None = None
 ) -> DueReport:
-    """Everything with a limit on it against one tail, worst first."""
+    """Everything with a limit on it against one tail, worst first.
+
+    Like the open count, this refuses a serial that is not on the register
+    rather than reporting an aeroplane nobody owns as having nothing due.
+    """
+    unit.aircraft.get(serial)
     forecast, measured = rate_for(unit, serial)
     flown = unit.aircraft.log_for(serial).at(on)
     deferrals = tuple(one for one in unit.deferrals.live() if _is_on(unit, one.against, serial))
@@ -104,7 +109,13 @@ def grounded(unit: UnitOfWork, on: date) -> tuple[DueReport, ...]:
 
 
 def open_on_tail(unit: UnitOfWork, serial: Serial, on: date, recent_days: int = 30) -> DamageCount:
-    """What is open on one tail as of a day."""
+    """What is open on one tail as of a day, refusing a tail that is not there.
+
+    The register is asked first even though the count does not need it. A
+    mistyped serial otherwise comes back as a clean aeroplane, which is the
+    one wrong answer this report must never give.
+    """
+    unit.aircraft.get(serial)
     return count_open(serial, unit.findings.on_tail(serial), on, recent_days)
 
 
