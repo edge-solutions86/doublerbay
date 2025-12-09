@@ -23,6 +23,7 @@ from doublerbay.api.schemas import (
     UsageIn,
     finding_out,
     measurements_in,
+    read_enum,
 )
 from doublerbay.api.security import Action, require
 from doublerbay.damage.kind import DamageKind
@@ -143,4 +144,5 @@ kinds = APIRouter(prefix="/findings", tags=["findings"])
 async def of_kind(kind: str, deps=Depends(deps)) -> list[FindingOut]:
     """Every card of one kind across the fleet."""
     with UnitOfWork(deps.engine) as unit:
-        return [finding_out(one) for one in unit.findings.of_kind(DamageKind(kind))]
+        held = read_enum(DamageKind, kind, "kind of damage")
+        return [finding_out(one) for one in unit.findings.of_kind(held)]

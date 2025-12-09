@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from enum import Enum
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -36,6 +37,8 @@ from doublerbay.measure.usage import Cycles, Hours, Usage
 from doublerbay.store.mapping import geometry_from, measurements_of
 
 # Which fields of a measurement document are lengths, and so cross as strings.
+EnumT = TypeVar("EnumT", bound=Enum)
+
 LENGTH_FIELDS = frozenset(
     {"depth", "along", "around", "length", "width", "worst_depth", "worst_pit", "height"}
 )
@@ -48,6 +51,21 @@ def inches(text: str, what: str = "length") -> Length:
         return Length.of_inches(Decimal(text))
     except (InvalidOperation, ValueError, TypeError):
         raise BadReading(f"{text!r} is not a {what} in inches") from None
+
+
+def read_enum(kind: type[EnumT], value: str, what: str) -> EnumT:
+    """Read an enum off the wire, refusing an unknown value the way the domain does.
+
+    Calling the enum directly raises ValueError, which is not one of the
+    refusals this service knows how to turn into a status code, so it would
+    leave as a five hundred. A caller sending a method this desk does not have
+    has made a bad request, not broken the server.
+    """
+    try:
+        return kind(value)
+    except ValueError:
+        every = ", ".join(str(one.value) for one in kind)
+        raise BadReading(f"{value!r} is not a {what}, it is one of {every}") from None
 
 
 def measurements_out(geometry: Geometry) -> dict[str, Any]:
