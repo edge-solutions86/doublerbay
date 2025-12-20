@@ -17,19 +17,22 @@ was repaired afterwards.
 
 from __future__ import annotations
 
+from datetime import date
+
 from doublerbay.disposition.deferral import Deferral
 from doublerbay.errors import BadReading
 from doublerbay.grid.ata import Reference
 from doublerbay.grid.surface import Offset
-from doublerbay.ids import FindingId, Serial
+from doublerbay.ids import FindingId, PanelId, Serial
 from doublerbay.measure.fastener import FastenerSize
 from doublerbay.measure.interval import Interval
 from doublerbay.measure.usage import Usage
 from doublerbay.repair.doubler import DoublerPlan
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import RepairCategory, RepairForm, RepairScheme
-from doublerbay.store.work import DeferralRow, RepairRow
+from doublerbay.store.work import CorrosionRow, DeferralRow, RepairRow
 from doublerbay.structure.material import material
+from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
 from doublerbay.tolerance.method import InspectionMethod
 
 
@@ -174,3 +177,42 @@ def row_to_repair(row: RepairRow) -> RepairRecord:
         at_usage=Usage(row.at_cycles, row.at_hours),
         removed=row.removed,
     )
+
+
+def corrosion_to_row(
+    entry: CorrosionEntry, serial: Serial, against: FindingId, reported: date | None = None
+) -> CorrosionRow:
+    """One graded corrosion finding, filed under the tail and the card.
+
+    The level goes down as its number rather than its name. The programme
+    talks about levels one, two and three, the authority does too, and a row
+    that said "level two" in words would have to be translated back every time
+    somebody sorted on it.
+    """
+    return CorrosionRow(
+        serial=serial,
+        against=against,
+        part=entry.part,
+        level=entry.level.value,
+        found_on=entry.found_on,
+        reported_on=reported,
+    )
+
+
+def row_to_corrosion(row: CorrosionRow) -> CorrosionEntry:
+    """Rebuild a graded entry, refusing a level the programme does not have."""
+    try:
+        level = CorrosionLevel(row.level)
+    except ValueError:
+        raise BadReading(f"{row.part}: level {row.level} is not one the programme grades") from None
+    return CorrosionEntry(part=row.part, level=level, found_on=row.found_on)
+
+
+def seen_here_before(rows: list[CorrosionRow], part: PanelId, before: date) -> bool:
+    """Whether this panel has been graded already, which is what makes a level two.
+
+    The date matters. Grading a finding against entries raised after it would
+    let a later inspection reach back and turn an old level one into a level
+    two, and the programme reads those numbers as a rate.
+    """
+    return any(row.part == part and row.found_on < before for row in rows)

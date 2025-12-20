@@ -13,6 +13,7 @@ cannot be resolved.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 from sqlalchemy import delete, select
@@ -29,10 +30,13 @@ from doublerbay.ids import FindingId, PanelId, Registration, RepairId, Serial
 from doublerbay.repair.record import RepairRecord, clashes
 from doublerbay.store.decisions import (
     apply_to_row,
+    corrosion_to_row,
     deferral_to_row,
     repair_to_row,
+    row_to_corrosion,
     row_to_deferral,
     row_to_repair,
+    seen_here_before,
 )
 from doublerbay.store.mapping import (
     aircraft_to_row,
@@ -51,7 +55,8 @@ from doublerbay.store.tables import (
     MoveRow,
     ReadingRow,
 )
-from doublerbay.store.work import DeferralRow, RepairRow
+from doublerbay.store.work import CorrosionRow, DeferralRow, RepairRow
+from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
 
 
 class AircraftRepository:
@@ -376,3 +381,83 @@ class RepairRepository:
     def needing_inspection(self, serial: Serial) -> tuple[RepairRecord, ...]:
         """The fitted repairs that carry a repeat inspection."""
         return tuple(one for one in self.on_tail(serial) if one.needs_inspection)
+
+
+class CorrosionRepository:
+    """The corrosion programme's own register, which is not the damage register.
+
+    Every entry here started as a damage card, and the two are kept apart
+    because they answer to different people. The card is closed when the
+    corrosion is blended out. The programme entry stays, because the question
+    it answers is whether this place keeps corroding, and that is only visible
+    over years.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def record(
+        self,
+        entry: CorrosionEntry,
+        serial: Serial,
+        against: FindingId,
+        reported: date | None = None,
+    ) -> None:
+        """File a graded finding against the tail and the card it came off."""
+        self._session.add(corrosion_to_row(entry, serial, against, reported))
+
+    def on_tail(self, serial: Serial) -> tuple[CorrosionEntry, ...]:
+        """Every graded finding on one aeroplane, oldest first."""
+        return tuple(row_to_corrosion(row) for row in self._rows_on(serial))
+
+    def on_panel(self, serial: Serial, part: PanelId) -> tuple[CorrosionEntry, ...]:
+        """Every graded finding on one panel of one aeroplane."""
+        rows = self._session.scalars(
+            select(CorrosionRow)
+            .where(CorrosionRow.serial == serial, CorrosionRow.part == part)
+            .order_by(CorrosionRow.found_on)
+        ).all()
+        return tuple(row_to_corrosion(row) for row in rows)
+
+    def at_level(self, level: CorrosionLevel) -> tuple[CorrosionEntry, ...]:
+        """Every finding across the fleet graded at one level."""
+        rows = self._session.scalars(
+            select(CorrosionRow)
+            .where(CorrosionRow.level == level.value)
+            .order_by(CorrosionRow.found_on)
+        ).all()
+        return tuple(row_to_corrosion(row) for row in rows)
+
+    def unreported(self) -> tuple[CorrosionEntry, ...]:
+        """Level three findings the authority has not been told about yet."""
+        rows = self._session.scalars(
+            select(CorrosionRow)
+            .where(
+                CorrosionRow.level == CorrosionLevel.THREE.value,
+                CorrosionRow.reported_on.is_(None),
+            )
+            .order_by(CorrosionRow.found_on)
+        ).all()
+        return tuple(row_to_corrosion(row) for row in rows)
+
+    def mark_reported(self, against: FindingId, on: date) -> None:
+        """Record that a level three finding went out, refusing a date before it was found."""
+        row = self._session.scalars(
+            select(CorrosionRow).where(CorrosionRow.against == against)
+        ).first()
+        if row is None:
+            raise NotOnFile(f"{against} is not on the corrosion register")
+        if on < row.found_on:
+            raise BadReading(f"{against} cannot be reported before it was found")
+        row.reported_on = on
+
+    def has_form_here(self, serial: Serial, part: PanelId, before: date) -> bool:
+        """Whether this panel has corroded before, which is what makes a level two."""
+        return seen_here_before(list(self._rows_on(serial)), part, before)
+
+    def _rows_on(self, serial: Serial) -> Sequence[CorrosionRow]:
+        return self._session.scalars(
+            select(CorrosionRow)
+            .where(CorrosionRow.serial == serial)
+            .order_by(CorrosionRow.found_on)
+        ).all()
