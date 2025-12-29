@@ -27,8 +27,9 @@ from doublerbay.api.schemas import (
 )
 from doublerbay.api.security import Action, require
 from doublerbay.damage.kind import DamageKind
-from doublerbay.disposition.state import DispositionRecord, DispositionState
+from doublerbay.disposition.state import DispositionState
 from doublerbay.ids import FindingId, Serial
+from doublerbay.service.intake import next_reference, take_in
 from doublerbay.store.unit import UnitOfWork
 
 router = APIRouter(prefix="/findings", tags=["findings"])
@@ -59,19 +60,24 @@ class SupersedeIn(BaseModel):
 class RaisedOut(BaseModel):
     reference: str
     state: str
+    corrosion_level: int | None = None
+    must_be_reported: bool = False
 
 
 @router.post("", response_model=RaisedOut, status_code=201)
 async def raise_finding(
     body: FindingIn, deps=Depends(deps), key=Depends(require(Action.RAISE_CARD))
 ) -> RaisedOut:
-    """Raise a damage card, allocating its number and opening its disposition."""
+    """Raise a damage card, with everything else raising one commits the desk to."""
     with UnitOfWork(deps.engine) as unit:
-        reference = unit.findings.next_reference(body.found_on.year)
-        finding = body.to_domain(reference)
-        unit.findings.raise_finding(finding)
-        unit.dispositions.save(DispositionRecord.raised(reference))
-    return RaisedOut(reference=str(reference), state=DispositionState.RAISED.value)
+        reference = next_reference(unit, body.found_on)
+        taken = take_in(unit, deps.book, deps.catalogue, body.to_domain(reference), body.urgent)
+    return RaisedOut(
+        reference=str(reference),
+        state=DispositionState.RAISED.value,
+        corrosion_level=taken.graded.level.value if taken.graded else None,
+        must_be_reported=taken.must_be_reported,
+    )
 
 
 @router.get("/{reference}", response_model=FindingOut)

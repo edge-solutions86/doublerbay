@@ -22,9 +22,11 @@ import click
 from doublerbay.api.schemas import FindingIn, measurements_out
 from doublerbay.cli.output import columns
 from doublerbay.damage.kind import DamageKind
-from doublerbay.disposition.state import DispositionRecord
 from doublerbay.errors import BadReading
+from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId, Serial
+from doublerbay.manual.book import v320_book
+from doublerbay.service.intake import next_reference, take_in
 from doublerbay.store.unit import UnitOfWork
 
 # What each kind measures. The values are the shape of the field, not a
@@ -132,10 +134,12 @@ def cards_raise(context: click.Context, document: Path) -> None:
     """Raise a card from a document, allocating its reference here."""
     body = read_document(document)
     with UnitOfWork(context.obj["engine"]) as unit:
-        reference = unit.findings.next_reference(body.found_on.year)
-        unit.findings.raise_finding(body.to_domain(reference))
-        unit.dispositions.save(DispositionRecord.raised(reference))
-    click.echo(f"raised {reference}")
+        reference = next_reference(unit, body.found_on)
+        taken = take_in(unit, v320_book(), TypeCatalogue(), body.to_domain(reference), body.urgent)
+    click.echo(str(taken))
+    by = taken.report_by
+    if by is not None:
+        click.echo(f"report it by {by.isoformat()}")
 
 
 @cards.command("show")

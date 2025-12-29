@@ -176,6 +176,8 @@ class FindingIn(BaseModel):
     wing: WingLocationIn | None = None
     measurements: dict[str, Any]
     note: str = ""
+    urgent: bool = False
+    """Set only for corrosion the operator judges an airworthiness concern now."""
 
     def to_domain(self, reference: FindingId) -> Finding:
         if (self.fuselage is None) == (self.wing is None):
