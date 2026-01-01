@@ -81,7 +81,14 @@ def build_app(deps: Deps) -> FastAPI:
     async def _refused(request: Request, error: DoublerbayError) -> JSONResponse:
         return JSONResponse(status_code=status_for(error), content=problem_of(error).model_dump())
 
-    from doublerbay.api import assessment, decisions, findings, fleet, reports
+    from doublerbay.api import (
+        assessment,
+        corrosion,
+        decisions,
+        findings,
+        fleet,
+        reports,
+    )
 
     app.include_router(findings.router)
     app.include_router(assessment.router)
@@ -90,6 +97,7 @@ def build_app(deps: Deps) -> FastAPI:
     app.include_router(findings.tails)
     app.include_router(decisions.router)
     app.include_router(reports.router)
+    app.include_router(corrosion.router)
 
     @app.get("/health", tags=["service"])
     async def health() -> dict[str, str]:

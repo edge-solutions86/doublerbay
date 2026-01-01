@@ -32,7 +32,7 @@ def test_a_tail_with_nothing_graded_is_coping():
     built = report()
     assert built.total == 0
     assert built.is_coping
-    assert built.escalation_rate == Decimal(0)
+    assert built.escalation_rate == Decimal("0.000")
 
 
 def test_level_ones_alone_mean_the_programme_is_coping():
@@ -76,7 +76,7 @@ def test_the_escalation_rate_is_the_share_above_level_one():
 
 
 def test_a_fleet_with_everything_escalated_reads_as_one():
-    assert report(entry(level=CorrosionLevel.TWO)).escalation_rate == Decimal(1)
+    assert report(entry(level=CorrosionLevel.TWO)).escalation_rate == Decimal("1.000")
 
 
 def test_the_denominator_is_said_out_loud():

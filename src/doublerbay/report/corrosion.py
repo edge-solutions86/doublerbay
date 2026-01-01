@@ -83,7 +83,7 @@ class ProgrammeReport:
     def escalation_rate(self) -> Decimal:
         """The share of findings above level one, over findings as the denominator."""
         if self.total == 0:
-            return Decimal(0)
+            return Decimal(0).quantize(PLACES)
         return (Decimal(self.above_level_one) / Decimal(self.total)).quantize(
             PLACES, rounding=ROUND_HALF_UP
         )
