@@ -20,6 +20,12 @@ from __future__ import annotations
 from datetime import date
 
 from doublerbay.disposition.deferral import Deferral
+from doublerbay.disposition.engineering import (
+    EngineeringOrder,
+    OrderId,
+    OrderState,
+    RepairApproval,
+)
 from doublerbay.errors import BadReading
 from doublerbay.grid.ata import Reference
 from doublerbay.grid.surface import Offset
@@ -30,7 +36,7 @@ from doublerbay.measure.usage import Usage
 from doublerbay.repair.doubler import DoublerPlan
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import RepairCategory, RepairForm, RepairScheme
-from doublerbay.store.work import CorrosionRow, DeferralRow, RepairRow
+from doublerbay.store.work import CorrosionRow, DeferralRow, OrderRow, RepairRow
 from doublerbay.structure.material import material
 from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
 from doublerbay.tolerance.method import InspectionMethod
@@ -216,3 +222,72 @@ def seen_here_before(rows: list[CorrosionRow], part: PanelId, before: date) -> b
     two, and the programme reads those numbers as a rate.
     """
     return any(row.part == part and row.found_on < before for row in rows)
+
+
+# What separates one condition from the next in the stored column.
+CONDITION_BREAK = "\n"
+
+
+def conditions_to_text(conditions: tuple[str, ...]) -> str | None:
+    """Fold the conditions onto one column, or nothing if there were none."""
+    kept = [one.strip() for one in conditions if one.strip()]
+    if not kept:
+        return None
+    if any(CONDITION_BREAK in one for one in kept):
+        raise BadReading("a condition is one line")
+    return CONDITION_BREAK.join(kept)
+
+
+def conditions_from_text(text: str | None) -> tuple[str, ...]:
+    """Read them back, dropping the blank lines a hand edit leaves behind."""
+    if not text:
+        return ()
+    return tuple(one for one in (line.strip() for line in text.split(CONDITION_BREAK)) if one)
+
+
+def order_to_row(order: EngineeringOrder) -> OrderRow:
+    """One engineering order, with its approval flattened onto the row.
+
+    The approval is four fields and it is either all there or none of it is,
+    so it lives on the order row rather than in a table of its own. A row with
+    a sheet number and no category is a row that was written by something that
+    did not go through here.
+    """
+    approval = order.approval
+    return OrderRow(
+        reference=str(order.reference),
+        against=order.against,
+        question=order.question,
+        raised=order.raised,
+        state=order.state.value,
+        sent=order.sent,
+        answered=order.answered,
+        sheet=approval.sheet if approval else None,
+        approved_category=approval.category.name if approval else None,
+        valid_until=approval.valid_until if approval else None,
+        conditions=conditions_to_text(approval.conditions) if approval else None,
+    )
+
+
+def row_to_order(row: OrderRow) -> EngineeringOrder:
+    """Rebuild an order, refusing a half written approval by name."""
+    approval = None
+    if row.sheet is not None or row.approved_category is not None:
+        if row.sheet is None or row.approved_category is None:
+            raise BadReading(f"{row.reference} carries half an approval")
+        approval = RepairApproval(
+            sheet=row.sheet,
+            category=RepairCategory[row.approved_category],
+            conditions=conditions_from_text(row.conditions),
+            valid_until=row.valid_until,
+        )
+    return EngineeringOrder(
+        reference=OrderId.parse(row.reference),
+        against=row.against,
+        question=row.question,
+        raised=row.raised,
+        state=OrderState(row.state),
+        sent=row.sent,
+        answered=row.answered,
+        approval=approval,
+    )

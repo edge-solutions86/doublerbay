@@ -58,10 +58,15 @@ def test_the_schema_comes_apart_again():
     assert left <= {"alembic_version"}
 
 
-def test_the_baseline_is_the_only_revision_so_far(upgraded):
+def test_the_head_is_the_latest_revision_written(upgraded):
     with upgraded.connect() as connection:
         context = MigrationContext.configure(connection)
-        assert context.get_current_revision() == "0001"
+        assert context.get_current_revision() == "0002"
+
+
+def test_the_conditions_column_arrives_with_its_own_revision(upgraded):
+    columns = {one["name"] for one in inspect(upgraded).get_columns("engineering_order")}
+    assert "conditions" in columns
 
 
 def test_every_constraint_carries_a_name_from_the_convention(upgraded):

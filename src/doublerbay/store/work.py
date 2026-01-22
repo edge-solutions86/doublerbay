@@ -149,6 +149,10 @@ class OrderRow(Base, Recorded):
     sheet: Mapped[str | None] = mapped_column(String(16), nullable=True)
     approved_category: Mapped[str | None] = mapped_column(String(1), nullable=True)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Newline separated. There are never more than a handful and nothing
+    # queries them, so a child table would be a join for something only ever
+    # read whole.
+    conditions: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     def __repr__(self) -> str:
         return f"<OrderRow {self.reference} {self.state}>"

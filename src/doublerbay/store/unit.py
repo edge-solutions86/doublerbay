@@ -25,6 +25,7 @@ from doublerbay.store.repository import (
     DeferralRepository,
     DispositionRepository,
     FindingRepository,
+    OrderRepository,
     RepairRepository,
 )
 
@@ -83,6 +84,10 @@ class UnitOfWork:
     @property
     def corrosion(self) -> CorrosionRepository:
         return CorrosionRepository(self._open())
+
+    @property
+    def orders(self) -> OrderRepository:
+        return OrderRepository(self._open())
 
     def flush(self) -> None:
         """Push the writes down so a later read in the same block sees them."""

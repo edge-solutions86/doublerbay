@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from doublerbay.damage.finding import Finding
 from doublerbay.damage.kind import DamageKind
 from doublerbay.disposition.deferral import Deferral
+from doublerbay.disposition.engineering import EngineeringOrder, OrderId, OrderState
 from doublerbay.disposition.state import DispositionRecord
 from doublerbay.errors import BadReading, NotOnFile
 from doublerbay.fleet.aircraft import Aircraft
@@ -32,9 +33,11 @@ from doublerbay.store.decisions import (
     apply_to_row,
     corrosion_to_row,
     deferral_to_row,
+    order_to_row,
     repair_to_row,
     row_to_corrosion,
     row_to_deferral,
+    row_to_order,
     row_to_repair,
     seen_here_before,
 )
@@ -55,7 +58,7 @@ from doublerbay.store.tables import (
     MoveRow,
     ReadingRow,
 )
-from doublerbay.store.work import CorrosionRow, DeferralRow, RepairRow
+from doublerbay.store.work import CorrosionRow, DeferralRow, OrderRow, RepairRow
 from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
 
 
@@ -461,3 +464,71 @@ class CorrosionRepository:
             .where(CorrosionRow.serial == serial)
             .order_by(CorrosionRow.found_on)
         ).all()
+
+
+class OrderRepository:
+    """Questions out to the manufacturer, and whatever came back.
+
+    An order is replaced rather than mutated. The domain object walks its own
+    state machine and hands back a new one, so the repository's job is to put
+    the whole thing down again, and a move the machine refused never reaches
+    here at all.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def raise_order(self, order: EngineeringOrder) -> None:
+        if self._row(order.reference) is not None:
+            raise BadReading(f"{order.reference} has already been raised")
+        self._session.add(order_to_row(order))
+
+    def save(self, order: EngineeringOrder) -> None:
+        """Put a moved order down again, replacing the row it came off."""
+        row = self._row(order.reference)
+        if row is None:
+            raise NotOnFile(f"{order.reference} is not an order on file")
+        self._session.delete(row)
+        self._session.flush()
+        self._session.add(order_to_row(order))
+
+    def get(self, reference: OrderId) -> EngineeringOrder:
+        row = self._row(reference)
+        if row is None:
+            raise NotOnFile(f"{reference} is not an order on file")
+        return row_to_order(row)
+
+    def open_orders(self) -> tuple[EngineeringOrder, ...]:
+        """Everything still waiting on an answer, oldest first."""
+        rows = self._session.scalars(
+            select(OrderRow)
+            .where(OrderRow.state.in_([one.value for one in OrderState if one.is_open]))
+            .order_by(OrderRow.raised)
+        ).all()
+        return tuple(row_to_order(row) for row in rows)
+
+    def against(self, reference: FindingId) -> tuple[EngineeringOrder, ...]:
+        """Every order raised against one card."""
+        rows = self._session.scalars(
+            select(OrderRow).where(OrderRow.against == reference).order_by(OrderRow.raised)
+        ).all()
+        return tuple(row_to_order(row) for row in rows)
+
+    def needing_chase(self, today: date) -> tuple[EngineeringOrder, ...]:
+        """The ones that have been out too long, longest first."""
+        waiting = [one for one in self.open_orders() if one.needs_chasing(today)]
+        waiting.sort(key=lambda one: (-one.days_waiting(today), str(one.reference)))
+        return tuple(waiting)
+
+    def next_reference(self, year: int) -> OrderId:
+        """The next order number in a year, which this side allocates."""
+        rows = self._session.scalars(select(OrderRow)).all()
+        used = [
+            OrderId.parse(row.reference).sequence
+            for row in rows
+            if OrderId.parse(row.reference).year == year
+        ]
+        return OrderId(year, max(used, default=0) + 1)
+
+    def _row(self, reference: OrderId) -> OrderRow | None:
+        return self._session.get(OrderRow, str(reference))
