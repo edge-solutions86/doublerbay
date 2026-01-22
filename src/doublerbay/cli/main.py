@@ -19,6 +19,7 @@ from doublerbay.cli.assessing import assess_card, assess_tail
 from doublerbay.cli.cards import cards
 from doublerbay.cli.desk import defer, report
 from doublerbay.cli.output import as_date, columns
+from doublerbay.cli.repairing import repair
 from doublerbay.errors import DoublerbayError
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.forecast import Forecast
@@ -139,6 +140,7 @@ cli.add_command(assess_card)
 cli.add_command(assess_tail)
 cli.add_command(defer)
 cli.add_command(report)
+cli.add_command(repair)
 
 
 def run() -> None:
