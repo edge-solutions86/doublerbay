@@ -13,33 +13,19 @@ desk asks both.
 
 from __future__ import annotations
 
-from datetime import date
-
 import click
 
 from doublerbay.assess.assessor import Assessment, assess, worst_disposition
 from doublerbay.assess.panel import assess_by_panel
 from doublerbay.cli.output import as_date, columns, say_nothing_found
-from doublerbay.fleet.catalogue import TailContext, TypeCatalogue
+from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId, Serial
 from doublerbay.manual.book import v320_book
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 
 TICK = "ok"
 CROSS = "no"
-
-
-def context_for(
-    unit: UnitOfWork, catalogue: TypeCatalogue, serial: Serial, on: date
-) -> TailContext:
-    """Build the tail context off the repositories, as the routes do."""
-    aircraft = unit.aircraft.get(serial)
-    return TailContext(
-        aircraft=aircraft,
-        on=on,
-        flown=unit.aircraft.log_for(serial).at(on),
-        definition=catalogue.definition_for(aircraft.series),
-    )
 
 
 def verdict_lines(one: Assessment) -> list[tuple[str, str]]:

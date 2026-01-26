@@ -16,7 +16,6 @@ from datetime import date
 import click
 
 from doublerbay.assess.placement import Placement, place
-from doublerbay.cli.assessing import context_for
 from doublerbay.cli.output import as_date, columns, say_nothing_found
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.grid.ata import Reference
@@ -27,6 +26,7 @@ from doublerbay.measure.length import Length
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import RepairScheme, select_scheme
 from doublerbay.service.repairs import embody, remove
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 
 DEFAULT_PAGE = "53-40-01"

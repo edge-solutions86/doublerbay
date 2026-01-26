@@ -30,6 +30,7 @@ from doublerbay.errors import BadReading
 from doublerbay.fleet.catalogue import TailContext, TypeCatalogue
 from doublerbay.ids import FindingId
 from doublerbay.manual.book import Book
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 from doublerbay.tolerance.corrosion import CorrosionContext, CorrosionEntry, grade
 
@@ -62,13 +63,7 @@ class Intake:
 
 def tail_context(unit: UnitOfWork, catalogue: TypeCatalogue, finding: Finding) -> TailContext:
     """The aeroplane as it stood on the day the card was raised."""
-    aircraft = unit.aircraft.get(finding.serial)
-    return TailContext(
-        aircraft=aircraft,
-        on=finding.found_on,
-        flown=unit.aircraft.log_for(finding.serial).at(finding.found_on),
-        definition=catalogue.definition_for(aircraft.series),
-    )
+    return context_for(unit, catalogue, finding.serial, finding.found_on)
 
 
 def within_limits(book: Book, tail: TailContext, finding: Finding) -> bool:

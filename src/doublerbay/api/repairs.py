@@ -18,7 +18,6 @@ from datetime import date
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from doublerbay.api.assessment import context_for
 from doublerbay.api.findings import deps, reference_from
 from doublerbay.api.schemas import inches
 from doublerbay.api.security import Action, require
@@ -30,6 +29,7 @@ from doublerbay.measure.fastener import FastenerSize
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import select_scheme
 from doublerbay.service.repairs import embody, remove
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 
 router = APIRouter(prefix="/repairs", tags=["repairs"])

@@ -22,8 +22,8 @@ from doublerbay.api.findings import deps, reference_from
 from doublerbay.api.schemas import AssessmentOut, assessment_out
 from doublerbay.assess.assessor import assess, worst_disposition
 from doublerbay.assess.panel import assess_by_panel
-from doublerbay.fleet.catalogue import TailContext, TypeCatalogue
 from doublerbay.ids import Serial
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 
 router = APIRouter(tags=["assessment"])
@@ -44,17 +44,6 @@ class TailAssessmentOut(BaseModel):
     on: date
     disposition: str
     panels: list[PanelAssessmentOut]
-
-
-def context_for(unit: UnitOfWork, catalogue: TypeCatalogue, serial: Serial, on: date):
-    """Build the tail context straight off the repositories."""
-    aircraft = unit.aircraft.get(serial)
-    return TailContext(
-        aircraft=aircraft,
-        on=on,
-        flown=unit.aircraft.log_for(serial).at(on),
-        definition=catalogue.definition_for(aircraft.series),
-    )
 
 
 @router.get("/findings/{reference}/assessment", response_model=AssessmentOut)

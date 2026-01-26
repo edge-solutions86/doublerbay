@@ -24,10 +24,12 @@ from datetime import date
 from decimal import Decimal
 
 from doublerbay.errors import DoublerbayError
+from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.fleet.forecast import Forecast
 from doublerbay.ids import Serial
 from doublerbay.report.damage import DamageCount, FleetDamage, count_fleet, count_open
 from doublerbay.report.due import DueItem, due_list, overrun
+from doublerbay.store.context import context_for
 from doublerbay.store.unit import UnitOfWork
 
 # What the type is planned at, used only when a tail has no rate of its own.
@@ -67,14 +69,18 @@ class DueReport:
 
 
 def due_on_tail(
-    unit: UnitOfWork, serial: Serial, on: date, within_days: int | None = None
+    unit: UnitOfWork,
+    serial: Serial,
+    on: date,
+    within_days: int | None = None,
+    catalogue: TypeCatalogue | None = None,
 ) -> DueReport:
     """Everything with a limit on it against one tail, worst first.
 
     Like the open count, this refuses a serial that is not on the register
     rather than reporting an aeroplane nobody owns as having nothing due.
     """
-    unit.aircraft.get(serial)
+    context_for(unit, catalogue or TypeCatalogue(), serial, on)
     forecast, measured = rate_for(unit, serial)
     flown = unit.aircraft.log_for(serial).at(on)
     deferrals = tuple(one for one in unit.deferrals.live() if _is_on(unit, one.against, serial))
