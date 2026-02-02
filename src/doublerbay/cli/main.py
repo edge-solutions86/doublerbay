@@ -18,6 +18,7 @@ import click
 from doublerbay.cli.assessing import assess_card, assess_tail
 from doublerbay.cli.cards import cards
 from doublerbay.cli.desk import defer, report
+from doublerbay.cli.ordering import order
 from doublerbay.cli.output import as_date, columns
 from doublerbay.cli.repairing import repair
 from doublerbay.errors import DoublerbayError
@@ -141,6 +142,7 @@ cli.add_command(assess_tail)
 cli.add_command(defer)
 cli.add_command(report)
 cli.add_command(repair)
+cli.add_command(order)
 
 
 def run() -> None:
