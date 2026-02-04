@@ -36,10 +36,18 @@ from doublerbay.measure.usage import Usage
 from doublerbay.repair.doubler import DoublerPlan
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import RepairCategory, RepairForm, RepairScheme
-from doublerbay.store.work import CorrosionRow, DeferralRow, OrderRow, RepairRow
+from doublerbay.store.work import (
+    CorrosionRow,
+    DeferralRow,
+    InspectionRow,
+    OrderRow,
+    RepairRow,
+)
 from doublerbay.structure.material import material
 from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
 from doublerbay.tolerance.method import InspectionMethod
+from doublerbay.tolerance.programme import InspectionTask
+from doublerbay.tolerance.schedule import InspectionSchedule
 
 
 def deferral_to_row(deferral: Deferral) -> DeferralRow:
@@ -290,4 +298,73 @@ def row_to_order(row: OrderRow) -> EngineeringOrder:
         sent=row.sent,
         answered=row.answered,
         approval=approval,
+    )
+
+
+# The clocks an inspection row can carry. A schedule against flight hours or
+# a day count would be stored as nothing at all, so it is refused instead.
+THRESHOLD_CLOCKS = ("cycles", "months")
+REPEAT_CLOCKS = ("cycles",)
+
+
+def _checked(interval: Interval, clocks: tuple[str, ...], what: str) -> Interval:
+    """Refuse an interval against a clock this row has no column for."""
+    for name in ("cycles", "hours", "months", "days"):
+        if getattr(interval, name) is not None and name not in clocks:
+            raise BadReading(f"a {what} in {name} is not one this desk stores")
+    return interval
+
+
+def task_to_row(task: InspectionTask) -> InspectionRow:
+    """One repeat inspection, hanging off the repair that carries it.
+
+    The threshold and the repeat are two different clocks and they go in
+    separate columns. A threshold is how long after embodiment the first look
+    happens; the repeat is how often after that. Storing one interval and a
+    flag would lose the case where the first look is later than every one
+    after it, which is the normal shape for a crack growth threshold.
+    """
+    schedule = task.schedule
+    threshold = _checked(schedule.threshold, THRESHOLD_CLOCKS, "threshold")
+    repeat = _checked(schedule.repeat, REPEAT_CLOCKS, "repeat") if schedule.repeat else None
+    return InspectionRow(
+        against=task.against,
+        part=task.part,
+        method=schedule.method.value,
+        threshold_cycles=threshold.cycles,
+        threshold_months=threshold.months,
+        repeat_cycles=repeat.cycles if repeat else None,
+        embodied=task.embodied,
+        at_cycles=task.at_embodiment.cycles,
+        at_hours=task.at_embodiment.hours,
+        last_done=task.last_done,
+        last_cycles=task.at_last_done.cycles if task.at_last_done else None,
+        last_hours=task.at_last_done.hours if task.at_last_done else None,
+    )
+
+
+def row_to_task(row: InspectionRow) -> InspectionTask:
+    """Rebuild a repeat inspection, refusing a half written sign off."""
+    if (row.last_done is None) != (row.last_cycles is None):
+        raise BadReading(f"{row.against} carries half a sign off")
+    if row.threshold_cycles is None and row.threshold_months is None:
+        raise BadReading(f"{row.against} carries a schedule with no threshold on it")
+    schedule = InspectionSchedule(
+        method=InspectionMethod(row.method),
+        threshold=Interval(cycles=row.threshold_cycles, months=row.threshold_months),
+        repeat=Interval(cycles=row.repeat_cycles) if row.repeat_cycles is not None else None,
+    )
+    done = (
+        Usage(row.last_cycles, row.last_hours)
+        if row.last_cycles is not None and row.last_hours is not None
+        else None
+    )
+    return InspectionTask(
+        against=row.against,
+        part=row.part,
+        schedule=schedule,
+        embodied=row.embodied,
+        at_embodiment=Usage(row.at_cycles, row.at_hours),
+        last_done=row.last_done,
+        at_last_done=done,
     )

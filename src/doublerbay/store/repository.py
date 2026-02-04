@@ -28,6 +28,7 @@ from doublerbay.errors import BadReading, NotOnFile
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
 from doublerbay.ids import FindingId, PanelId, Registration, RepairId, Serial
+from doublerbay.measure.usage import Usage
 from doublerbay.repair.record import RepairRecord, clashes
 from doublerbay.store.decisions import (
     apply_to_row,
@@ -39,7 +40,9 @@ from doublerbay.store.decisions import (
     row_to_deferral,
     row_to_order,
     row_to_repair,
+    row_to_task,
     seen_here_before,
+    task_to_row,
 )
 from doublerbay.store.mapping import (
     aircraft_to_row,
@@ -58,8 +61,15 @@ from doublerbay.store.tables import (
     MoveRow,
     ReadingRow,
 )
-from doublerbay.store.work import CorrosionRow, DeferralRow, OrderRow, RepairRow
+from doublerbay.store.work import (
+    CorrosionRow,
+    DeferralRow,
+    InspectionRow,
+    OrderRow,
+    RepairRow,
+)
 from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
+from doublerbay.tolerance.programme import InspectionTask
 
 
 class AircraftRepository:
@@ -532,3 +542,64 @@ class OrderRepository:
 
     def _row(self, reference: OrderId) -> OrderRow | None:
         return self._session.get(OrderRow, str(reference))
+
+
+class InspectionRepository:
+    """The repeat inspections the fitted repairs carry.
+
+    A task hangs off its repair by the repair's own number. That is the whole
+    key, because a repair carries at most one repeat inspection, and a second
+    one against the same doubler means somebody has raised the same task
+    twice rather than tightened the first.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, task: InspectionTask) -> None:
+        """Put a repeat inspection on a repair, refusing a second one."""
+        if self._session.get(RepairRow, task.against) is None:
+            raise NotOnFile(f"{task.against} is not a repair on file")
+        if self._session.get(InspectionRow, task.against) is not None:
+            raise BadReading(f"{task.against} already carries a repeat inspection")
+        self._session.add(task_to_row(task))
+
+    def get(self, reference: RepairId) -> InspectionTask:
+        return row_to_task(self._row(reference))
+
+    def sign_off(self, reference: RepairId, on: date, flown: Usage) -> InspectionTask:
+        """Record that the inspection was done, at the counters it was done at."""
+        row = self._row(reference)
+        signed = row_to_task(row).signed_off(on, flown)
+        row.last_done = signed.last_done
+        row.last_cycles = flown.cycles
+        row.last_hours = flown.hours
+        return signed
+
+    def drop(self, reference: RepairId) -> None:
+        """Take a repeat inspection off, which is what removing its repair does."""
+        self._session.delete(self._row(reference))
+
+    def on_tail(self, serial: Serial) -> tuple[InspectionTask, ...]:
+        """Every repeat inspection on one aeroplane, oldest repair first."""
+        rows = self._session.scalars(
+            select(InspectionRow)
+            .join(RepairRow, RepairRow.reference == InspectionRow.against)
+            .where(RepairRow.serial == serial, RepairRow.removed.is_(None))
+            .order_by(InspectionRow.embodied)
+        ).all()
+        return tuple(row_to_task(row) for row in rows)
+
+    def never_done(self, serial: Serial) -> tuple[InspectionTask, ...]:
+        """The ones nobody has signed off yet, which is where the threshold bites."""
+        return tuple(one for one in self.on_tail(serial) if not one.has_been_done)
+
+    def due_on(self, serial: Serial, flown: Usage, today: date) -> tuple[InspectionTask, ...]:
+        """Everything on one tail that has come due, oldest repair first."""
+        return tuple(one for one in self.on_tail(serial) if one.is_due(flown, today))
+
+    def _row(self, reference: RepairId) -> InspectionRow:
+        row = self._session.get(InspectionRow, reference)
+        if row is None:
+            raise NotOnFile(f"{reference} carries no repeat inspection")
+        return row
