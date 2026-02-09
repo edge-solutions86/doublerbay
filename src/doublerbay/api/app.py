@@ -87,6 +87,7 @@ def build_app(deps: Deps) -> FastAPI:
         decisions,
         findings,
         fleet,
+        inspections,
         orders,
         repairs,
         reports,
@@ -102,6 +103,7 @@ def build_app(deps: Deps) -> FastAPI:
     app.include_router(corrosion.router)
     app.include_router(repairs.router)
     app.include_router(orders.router)
+    app.include_router(inspections.router)
 
     @app.get("/health", tags=["service"])
     async def health() -> dict[str, str]:
