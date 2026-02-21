@@ -83,6 +83,7 @@ def build_app(deps: Deps) -> FastAPI:
 
     from doublerbay.api import (
         assessment,
+        audit,
         checks,
         corrosion,
         decisions,
@@ -106,6 +107,7 @@ def build_app(deps: Deps) -> FastAPI:
     app.include_router(orders.router)
     app.include_router(inspections.router)
     app.include_router(checks.router)
+    app.include_router(audit.router)
 
     @app.get("/health", tags=["service"])
     async def health() -> dict[str, str]:
