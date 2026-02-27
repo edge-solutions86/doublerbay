@@ -30,6 +30,7 @@ from doublerbay.damage.kind import DamageKind
 from doublerbay.disposition.state import DispositionState
 from doublerbay.ids import FindingId, Serial
 from doublerbay.service.intake import next_reference, take_in
+from doublerbay.service.measuring import re_measure
 from doublerbay.store.unit import UnitOfWork
 
 router = APIRouter(prefix="/findings", tags=["findings"])
@@ -94,20 +95,51 @@ async def read_history(reference: str, deps=Depends(deps)) -> list[FindingOut]:
         return [finding_out(one) for one in unit.findings.history(reference_from(reference))]
 
 
-@router.post("/{reference}/revisions", response_model=FindingOut, status_code=201)
-async def re_measure(
+class ReMeasuredOut(BaseModel):
+    """A card looked at again, and how the answer moved."""
+
+    finding: FindingOut
+    was: str
+    now: str
+    got_worse: bool
+    still_deferred: bool
+    outgrew_its_deferral: bool
+
+
+@router.post("/{reference}/revisions", response_model=ReMeasuredOut, status_code=201)
+async def record_revision(
     reference: str,
     body: RevisionIn,
     deps=Depends(deps),
     key=Depends(require(Action.RAISE_CARD)),
-) -> FindingOut:
-    """Record a re measurement, which is a new revision of the same card."""
+) -> ReMeasuredOut:
+    """Record a re measurement, and say what the new numbers changed.
+
+    The response carries both dispositions rather than just the card. A client
+    that got the card back would have to re assess it to find out whether
+    anything moved, and half of them would not.
+    """
+    held = reference_from(reference)
     with UnitOfWork(deps.engine) as unit:
-        current = unit.findings.latest(reference_from(reference))
+        current = unit.findings.latest(held)
         geometry = measurements_in(current.kind, dict(body.measurements))
-        updated = current.re_measured(geometry, body.found_on, body.at_usage.to_domain())
-        unit.findings.record_revision(updated)
-        return finding_out(updated)
+        answer = re_measure(
+            unit,
+            deps.book,
+            deps.catalogue,
+            held,
+            geometry,
+            body.found_on,
+            body.at_usage.to_domain(),
+        )
+        return ReMeasuredOut(
+            finding=finding_out(answer.finding),
+            was=answer.was.value,
+            now=answer.now.value,
+            got_worse=answer.got_worse,
+            still_deferred=answer.still_deferred,
+            outgrew_its_deferral=answer.outgrew_its_deferral,
+        )
 
 
 @router.post("/{reference}/supersede", response_model=FindingOut)

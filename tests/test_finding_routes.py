@@ -152,8 +152,8 @@ def test_a_re_measurement_makes_a_new_revision():
         },
     )
     assert answer.status_code == 201
-    assert answer.json()["revision"] == 2
-    assert answer.json()["measurements"]["depth"] == "0.040"
+    assert answer.json()["finding"]["revision"] == 2
+    assert answer.json()["finding"]["measurements"]["depth"] == "0.040"
 
 
 def test_the_history_carries_every_revision():

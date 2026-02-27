@@ -19,14 +19,15 @@ from typing import Any
 
 import click
 
-from doublerbay.api.schemas import FindingIn, measurements_out
-from doublerbay.cli.output import columns
+from doublerbay.api.schemas import FindingIn, measurements_in, measurements_out
+from doublerbay.cli.output import as_date, columns
 from doublerbay.damage.kind import DamageKind
 from doublerbay.errors import BadReading
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId, Serial
 from doublerbay.manual.book import v320_book
 from doublerbay.service.intake import next_reference, take_in
+from doublerbay.service.measuring import re_measure
 from doublerbay.store.unit import UnitOfWork
 
 # What each kind measures. The values are the shape of the field, not a
@@ -205,3 +206,34 @@ def cards_list(context: click.Context, serial: str, open_only: bool) -> None:
             for one in found
         )
     click.echo(columns(rows))
+
+
+@cards.command("measure")
+@click.argument("reference")
+@click.argument("document", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--on", "on_day", required=True, help="the day it was looked at")
+@click.pass_context
+def cards_measure(context: click.Context, reference: str, document: Path, on_day: str) -> None:
+    """Record a re measurement from a document of the new numbers.
+
+    Only the measurements block is read. The rest of a card document is where
+    the damage is and what caused it, and neither of those changes because
+    somebody put a depth gauge on it again.
+    """
+    held = FindingId.parse(reference)
+    sent = json.loads(document.read_text())
+    if not isinstance(sent, dict) or "measurements" not in sent:
+        raise BadReading(f"{document} carries no measurements block")
+    with UnitOfWork(context.obj["engine"]) as unit:
+        current = unit.findings.latest(held)
+        answer = re_measure(
+            unit,
+            v320_book(),
+            TypeCatalogue(),
+            held,
+            measurements_in(current.kind, dict(sent["measurements"])),
+            as_date(on_day),
+        )
+    click.echo(str(answer))
+    if answer.outgrew_its_deferral:
+        click.echo("this is still deferred and the answer got worse, tell an engineer")
