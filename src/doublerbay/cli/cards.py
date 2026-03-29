@@ -26,6 +26,7 @@ from doublerbay.errors import BadReading
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId, Serial
 from doublerbay.manual.book import v320_book
+from doublerbay.report.history import story_of
 from doublerbay.service.intake import next_reference, take_in
 from doublerbay.service.measuring import re_measure
 from doublerbay.store.unit import UnitOfWork
@@ -237,3 +238,15 @@ def cards_measure(context: click.Context, reference: str, document: Path, on_day
     click.echo(str(answer))
     if answer.outgrew_its_deferral:
         click.echo("this is still deferred and the answer got worse, tell an engineer")
+
+
+@cards.command("story")
+@click.argument("reference")
+@click.pass_context
+def cards_story(context: click.Context, reference: str) -> None:
+    """Everything that happened to one card, oldest first."""
+    with UnitOfWork(context.obj["engine"]) as unit:
+        built = story_of(unit, FindingId.parse(reference))
+    click.echo(str(built))
+    click.echo("")
+    click.echo(columns([(one.on.isoformat(), one.register, one.what) for one in built.entries]))
