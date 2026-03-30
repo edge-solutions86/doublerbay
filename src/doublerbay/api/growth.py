@@ -19,7 +19,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.damage.kind import DamageKind
 from doublerbay.errors import BadReading, DoublerbayError
 from doublerbay.ids import Serial

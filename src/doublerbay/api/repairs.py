@@ -18,7 +18,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.api.schemas import inches
 from doublerbay.api.security import Action, require
 from doublerbay.assess.placement import place

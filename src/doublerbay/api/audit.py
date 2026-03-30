@@ -16,7 +16,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps
+from doublerbay.api.deps import deps
 from doublerbay.ids import Serial
 from doublerbay.report.audit import StructureAudit, audit
 from doublerbay.store.unit import UnitOfWork

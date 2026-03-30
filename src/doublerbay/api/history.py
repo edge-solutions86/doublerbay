@@ -17,7 +17,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.report.history import ORDER, Story, story_of
 from doublerbay.store.unit import UnitOfWork
 

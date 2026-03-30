@@ -18,7 +18,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.api.schemas import AssessmentOut, assessment_out
 from doublerbay.assess.assessor import assess, worst_disposition
 from doublerbay.assess.panel import assess_by_panel

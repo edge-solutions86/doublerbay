@@ -19,7 +19,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps
+from doublerbay.api.deps import deps
 from doublerbay.api.schemas import AircraftIn, AircraftOut, UsageIn, UsageOut, aircraft_out
 from doublerbay.api.security import Action, require
 from doublerbay.fleet.forecast import Forecast

@@ -18,7 +18,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps
+from doublerbay.api.deps import deps
 from doublerbay.errors import BadReading
 from doublerbay.ids import Serial
 from doublerbay.report.desk import (

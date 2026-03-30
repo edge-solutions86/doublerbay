@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.api.schemas import (
     FindingIn,
     FindingOut,
@@ -28,21 +29,12 @@ from doublerbay.api.schemas import (
 from doublerbay.api.security import Action, require
 from doublerbay.damage.kind import DamageKind
 from doublerbay.disposition.state import DispositionState
-from doublerbay.ids import FindingId, Serial
+from doublerbay.ids import Serial
 from doublerbay.service.intake import next_reference, take_in
 from doublerbay.service.measuring import re_measure
 from doublerbay.store.unit import UnitOfWork
 
 router = APIRouter(prefix="/findings", tags=["findings"])
-
-
-def deps(request: Request):
-    """The application's dependencies, off the app rather than out of a global."""
-    return request.app.state.deps
-
-
-def reference_from(text: str) -> FindingId:
-    return FindingId.parse(text)
 
 
 class RevisionIn(BaseModel):

@@ -17,7 +17,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, reference_from
 from doublerbay.api.schemas import read_enum
 from doublerbay.api.security import Action, require
 from doublerbay.errors import BadReading

@@ -17,10 +17,10 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.findings import deps, reference_from
+from doublerbay.api.deps import deps, order_from, reference_from
 from doublerbay.api.schemas import read_enum
 from doublerbay.api.security import Action, require
-from doublerbay.disposition.engineering import EngineeringOrder, OrderId, RepairApproval
+from doublerbay.disposition.engineering import EngineeringOrder, RepairApproval
 from doublerbay.repair.scheme import RepairCategory
 from doublerbay.service.orders import (
     acknowledge,
@@ -114,10 +114,6 @@ def order_out(order: EngineeringOrder) -> OrderOut:
     )
 
 
-def reference_of(text: str) -> OrderId:
-    return OrderId.parse(text)
-
-
 @router.post("", response_model=OrderOut, status_code=201)
 async def raise_one(
     body: RaiseIn, deps=Depends(deps), key=Depends(require(Action.DISPOSITION))
@@ -151,7 +147,7 @@ async def chase(on: date, deps=Depends(deps)) -> list[ChasedOut]:
 async def read_order(reference: str, deps=Depends(deps)) -> OrderOut:
     """One order and whatever came back."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(unit.orders.get(reference_of(reference)))
+        return order_out(unit.orders.get(order_from(reference)))
 
 
 @router.post("/{reference}/sent", response_model=OrderOut)
@@ -160,7 +156,7 @@ async def mark_sent(
 ) -> OrderOut:
     """Record the day it actually went, which is not the day it was written."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(send(unit, reference_of(reference), body.on))
+        return order_out(send(unit, order_from(reference), body.on))
 
 
 @router.post("/{reference}/acknowledged", response_model=OrderOut)
@@ -169,7 +165,7 @@ async def mark_acknowledged(
 ) -> OrderOut:
     """Record that the manufacturer has it, which stops the chase clock."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(acknowledge(unit, reference_of(reference)))
+        return order_out(acknowledge(unit, order_from(reference)))
 
 
 @router.post("/{reference}/approved", response_model=OrderOut)
@@ -178,7 +174,7 @@ async def mark_approved(
 ) -> OrderOut:
     """Record an approval and put the card back where a repair can be raised."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(approve(unit, reference_of(reference), body.to_domain(), body.on, body.by))
+        return order_out(approve(unit, order_from(reference), body.to_domain(), body.on, body.by))
 
 
 @router.post("/{reference}/rejected", response_model=OrderOut)
@@ -187,7 +183,7 @@ async def mark_rejected(
 ) -> OrderOut:
     """Record a rejection, which still releases the card."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(reject(unit, reference_of(reference), body.on, body.by))
+        return order_out(reject(unit, order_from(reference), body.on, body.by))
 
 
 @router.post("/{reference}/withdrawn", response_model=OrderOut)
@@ -196,4 +192,4 @@ async def mark_withdrawn(
 ) -> OrderOut:
     """Take a question back, releasing the card the same way an answer does."""
     with UnitOfWork(deps.engine) as unit:
-        return order_out(withdraw(unit, reference_of(reference), body.on, body.by))
+        return order_out(withdraw(unit, order_from(reference), body.on, body.by))
