@@ -22,6 +22,7 @@ from doublerbay.cli.desk import defer, report
 from doublerbay.cli.ordering import order
 from doublerbay.cli.output import as_date, columns
 from doublerbay.cli.repairing import repair
+from doublerbay.cli.serving import serve, show_settings, show_variables
 from doublerbay.errors import DoublerbayError
 from doublerbay.fleet.aircraft import Aircraft
 from doublerbay.fleet.forecast import Forecast
@@ -145,6 +146,9 @@ cli.add_command(report)
 cli.add_command(repair)
 cli.add_command(order)
 cli.add_command(check)
+cli.add_command(serve)
+cli.add_command(show_settings)
+cli.add_command(show_variables)
 
 
 def run() -> None:
