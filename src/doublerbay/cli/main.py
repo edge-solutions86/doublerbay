@@ -13,6 +13,8 @@ ends up with a locked row nobody can explain.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
 from doublerbay.cli.assessing import assess_card, assess_tail
@@ -30,6 +32,7 @@ from doublerbay.fleet.model import Series
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
 from doublerbay.ids import Registration, Serial
 from doublerbay.measure.usage import Cycles, Hours, Usage
+from doublerbay.service.readings import post_all
 from doublerbay.store.base import IN_MEMORY, build_engine, build_schema, table_names
 from doublerbay.store.unit import UnitOfWork
 
@@ -162,3 +165,15 @@ def run() -> None:
         raise SystemExit(problem.exit_code) from None
     except click.exceptions.Abort:
         raise SystemExit(1) from None
+
+
+@fleet.command("import")
+@click.argument("document", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.pass_context
+def fleet_import(context: click.Context, document: Path) -> None:
+    """Post a night of counter readings from the maintenance system export."""
+    with UnitOfWork(context.obj["engine"]) as unit:
+        taken = post_all(unit, document.read_text(encoding="utf-8"))
+    click.echo(str(taken))
+    for one in taken.refused:
+        click.echo(f"  {one}")
