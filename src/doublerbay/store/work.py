@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from doublerbay.ids import FindingId, PanelId, RepairId, Serial
@@ -39,6 +39,10 @@ class RepairRow(Base, Recorded):
     """One repair, with its drawing on the row."""
 
     __tablename__ = "repair"
+    # The clash check asks for the fitted repairs on one panel of one tail,
+    # and the audit asks for the fitted repairs on one tail. Both are the same
+    # prefix, so one index over serial, part and removed serves them both.
+    __table_args__ = (Index("ix_repair_fitted", "serial", "part", "removed"),)
 
     reference: Mapped[RepairId] = mapped_column(RepairIdColumn, primary_key=True)
     serial: Mapped[Serial] = mapped_column(SerialColumn, ForeignKey("aircraft.serial"), index=True)
@@ -112,6 +116,9 @@ class DeferralRow(Base, Recorded):
     """A decision to keep flying with a damage, and the limit on it."""
 
     __tablename__ = "deferral"
+    # The due list wants the live ones in the order they were granted, which
+    # is one index rather than a scan and a sort.
+    __table_args__ = (Index("ix_deferral_live", "lifted", "granted"),)
 
     against: Mapped[FindingId] = mapped_column(FindingIdColumn, primary_key=True)
     granted: Mapped[date] = mapped_column(Date, index=True)
@@ -162,6 +169,10 @@ class CorrosionRow(Base, Recorded):
     """One graded corrosion finding, which the programme reports on separately."""
 
     __tablename__ = "corrosion_entry"
+    # Deciding a level two means asking whether this panel on this aeroplane
+    # has corroded before this day, which is exactly these three columns in
+    # this order.
+    __table_args__ = (Index("ix_corrosion_here_before", "serial", "part", "found_on"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     serial: Mapped[Serial] = mapped_column(SerialColumn, ForeignKey("aircraft.serial"), index=True)

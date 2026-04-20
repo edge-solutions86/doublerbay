@@ -94,6 +94,10 @@ class ReadingRow(Base, Recorded):
 
 
 class FindingRow(Base, Recorded):
+    # Every open damage report on the fleet runs the same query: the cards on
+    # one tail that nothing has superseded. On the serial alone that reads
+    # every revision of every card the aeroplane has ever carried and throws
+    # most of them away.
     """One damage card, at one revision, with its location as it was written."""
 
     __tablename__ = "finding"
