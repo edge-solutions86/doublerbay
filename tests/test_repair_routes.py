@@ -134,12 +134,12 @@ def test_a_mechanic_may_not_fit_a_repair():
 def test_the_repairs_on_a_tail_come_back():
     engine, api = built()
     api.post("/repairs", json=body(assessed(engine)))
-    assert len(api.get("/repairs/aircraft/5127").json()) == 1
+    assert api.get("/repairs/aircraft/5127").json()["total"] == 1
 
 
 def test_a_tail_with_no_repairs_comes_back_empty():
     engine, api = built()
-    assert api.get("/repairs/aircraft/5127").json() == []
+    assert api.get("/repairs/aircraft/5127").json()["rows"] == []
 
 
 def test_a_tail_that_is_not_on_the_register_is_not_found():
@@ -164,14 +164,14 @@ def test_a_repair_can_be_taken_off():
     engine, api = built()
     api.post("/repairs", json=body(assessed(engine)))
     assert api.post("/repairs/53/1/remove", json={"on": "2026-01-05"}).status_code == 204
-    assert api.get("/repairs/aircraft/5127").json() == []
+    assert api.get("/repairs/aircraft/5127").json()["rows"] == []
 
 
 def test_a_removed_repair_is_still_on_the_history():
     engine, api = built()
     api.post("/repairs", json=body(assessed(engine)))
     api.post("/repairs/53/1/remove", json={"on": "2026-01-05"})
-    every = api.get("/repairs/aircraft/5127", params={"fitted_only": False}).json()
+    every = api.get("/repairs/aircraft/5127", params={"fitted_only": False}).json()["rows"]
     assert every[0]["removed"] == "2026-01-05"
 
 

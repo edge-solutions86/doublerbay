@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
 from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import UsageOut, read_enum
 from doublerbay.api.security import Action, require
 from doublerbay.disposition.deferral import Deferral, grant
@@ -119,11 +120,12 @@ async def grant_deferral(
     return deferral_out(deferral)
 
 
-@router.get("", response_model=list[DeferralOut])
-async def live(deps=Depends(deps)) -> list[DeferralOut]:
-    """Every deferral still being flown against."""
+@router.get("", response_model=Page[DeferralOut])
+async def live(offset: int | None = None, limit: int | None = None, deps=Depends(deps)) -> dict:
+    """Every deferral still being flown against, oldest first."""
+    asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
-        return [deferral_out(one) for one in unit.deferrals.live()]
+        return paged(unit.deferrals.live(), asked, deferral_out)
 
 
 @router.get("/{reference}", response_model=DeferralOut)

@@ -112,12 +112,12 @@ def test_a_mechanic_may_not_raise_an_order():
 def test_the_open_list_carries_what_is_out():
     engine, api = built()
     raise_one(api, assessed(engine))
-    assert len(api.get("/orders").json()) == 1
+    assert api.get("/orders").json()["total"] == 1
 
 
 def test_the_open_list_is_empty_before_anything_goes_out():
     engine, api = built()
-    assert api.get("/orders").json() == []
+    assert api.get("/orders").json()["rows"] == []
 
 
 def test_one_order_can_be_read_back():

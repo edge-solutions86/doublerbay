@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from doublerbay.api.deps import deps, order_from, reference_from
+from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import read_enum
 from doublerbay.api.security import Action, require
 from doublerbay.disposition.engineering import EngineeringOrder, RepairApproval
@@ -126,11 +127,14 @@ async def raise_one(
         return order_out(raised.order)
 
 
-@router.get("", response_model=list[OrderOut])
-async def open_orders(deps=Depends(deps)) -> list[OrderOut]:
+@router.get("", response_model=Page[OrderOut])
+async def open_orders(
+    offset: int | None = None, limit: int | None = None, deps=Depends(deps)
+) -> dict:
     """Everything still waiting on an answer, oldest first."""
+    asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
-        return [order_out(one) for one in unit.orders.open_orders()]
+        return paged(unit.orders.open_orders(), asked, order_out)
 
 
 @router.get("/chase", response_model=list[ChasedOut])

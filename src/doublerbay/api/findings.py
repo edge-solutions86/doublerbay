@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import (
     FindingIn,
     FindingOut,
@@ -158,13 +159,25 @@ async def supersede(
 tails = APIRouter(prefix="/aircraft", tags=["findings"])
 
 
-@tails.get("/{serial}/findings", response_model=list[FindingOut])
-async def on_tail(serial: str, open_only: bool = False, deps=Depends(deps)) -> list[FindingOut]:
-    """Every card on one tail, or only the ones the desk still owns."""
+@tails.get("/{serial}/findings", response_model=Page[FindingOut])
+async def on_tail(
+    serial: str,
+    open_only: bool = False,
+    offset: int | None = None,
+    limit: int | None = None,
+    deps=Depends(deps),
+) -> dict:
+    """Every card on one tail, or only the ones the desk still owns.
+
+    Paged, because a twenty year old aeroplane carries four figures of them
+    and nothing renders that.
+    """
+    asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
         held = Serial(serial)
+        unit.aircraft.get(held)
         cards = unit.findings.open_on(held) if open_only else unit.findings.on_tail(held)
-        return [finding_out(one) for one in cards]
+        return paged(cards, asked, finding_out)
 
 
 kinds = APIRouter(prefix="/findings", tags=["findings"])

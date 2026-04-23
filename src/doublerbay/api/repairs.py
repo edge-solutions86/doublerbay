@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
 from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import inches
 from doublerbay.api.security import Action, require
 from doublerbay.assess.placement import place
@@ -170,13 +171,20 @@ async def draw_and_fit(
         )
 
 
-@router.get("/aircraft/{serial}", response_model=list[RepairOut])
-async def on_tail(serial: str, fitted_only: bool = True, deps=Depends(deps)) -> list[RepairOut]:
+@router.get("/aircraft/{serial}", response_model=Page[RepairOut])
+async def on_tail(
+    serial: str,
+    fitted_only: bool = True,
+    offset: int | None = None,
+    limit: int | None = None,
+    deps=Depends(deps),
+) -> dict:
     """Every repair on one aeroplane, still fitted or ever fitted."""
+    asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
         held = Serial(serial)
         unit.aircraft.get(held)
-        return [repair_out(one) for one in unit.repairs.on_tail(held, fitted_only)]
+        return paged(unit.repairs.on_tail(held, fitted_only), asked, repair_out)
 
 
 @router.get("/{chapter}/{sequence}", response_model=RepairOut)

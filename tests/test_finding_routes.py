@@ -131,7 +131,7 @@ def test_a_card_whose_kind_and_cause_do_not_go_together_is_refused():
 def test_nothing_is_written_when_a_card_is_refused():
     api = client()
     api.post("/findings", json=card_body(origin="lightning"))
-    assert api.get("/aircraft/5127/findings").json() == []
+    assert api.get("/aircraft/5127/findings").json()["rows"] == []
 
 
 def test_a_re_measurement_makes_a_new_revision():
@@ -211,7 +211,7 @@ def test_a_superseded_card_drops_off_the_open_list():
     first = raised(api)
     second = raised(api)
     api.post(f"/findings/{first}/supersede", json={"by": second})
-    open_cards = api.get("/aircraft/5127/findings", params={"open_only": True}).json()
+    open_cards = api.get("/aircraft/5127/findings", params={"open_only": True}).json()["rows"]
     assert [one["reference"] for one in open_cards] == [second]
 
 
@@ -226,13 +226,13 @@ def test_the_cards_on_a_tail_come_back_in_number_order():
     api = client()
     raised(api)
     raised(api)
-    listed = api.get("/aircraft/5127/findings").json()
+    listed = api.get("/aircraft/5127/findings").json()["rows"]
     assert [one["reference"] for one in listed] == ["DR-2025-000001", "DR-2025-000002"]
 
 
 def test_a_tail_with_nothing_on_it_comes_back_empty():
     api = client()
-    assert api.get("/aircraft/5127/findings").json() == []
+    assert api.get("/aircraft/5127/findings").json()["rows"] == []
 
 
 def test_cards_can_be_pulled_out_by_kind():

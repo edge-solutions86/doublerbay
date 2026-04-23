@@ -164,12 +164,12 @@ def test_deferring_a_card_twice_is_refused():
 def test_the_live_list_carries_what_is_deferred():
     engine, api = stocked()
     api.post("/deferrals", json=body(assessed(engine)))
-    assert len(api.get("/deferrals").json()) == 1
+    assert api.get("/deferrals").json()["total"] == 1
 
 
 def test_the_live_list_is_empty_before_anything_is_deferred():
     engine, api = stocked()
-    assert api.get("/deferrals").json() == []
+    assert api.get("/deferrals").json()["rows"] == []
 
 
 def test_one_deferral_can_be_read_back():
@@ -207,7 +207,7 @@ def test_a_deferral_can_be_lifted():
     reference = assessed(engine)
     api.post("/deferrals", json=body(reference))
     assert api.post(f"/deferrals/{reference}/lift", json={"on": "2025-06-01"}).status_code == 204
-    assert api.get("/deferrals").json() == []
+    assert api.get("/deferrals").json()["rows"] == []
 
 
 def test_lifting_one_that_was_never_granted_is_refused():
