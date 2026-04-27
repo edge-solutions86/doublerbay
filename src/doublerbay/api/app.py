@@ -25,6 +25,7 @@ from sqlalchemy import Engine
 from doublerbay.api.security import KeyRing, open_ring
 from doublerbay.errors import BadReading, DoublerbayError, NotOnFile, OutOfSequence, Refused
 from doublerbay.fleet.catalogue import TypeCatalogue
+from doublerbay.logging import configure, refused, write
 from doublerbay.manual.book import Book, v320_book
 
 TITLE = "doublerbay"
@@ -71,14 +72,40 @@ def problem_of(error: DoublerbayError) -> Problem:
     return Problem(kind=type(error).__name__, detail=str(error))
 
 
+def _role_on(request: Request) -> str | None:
+    """Which role a refused request was made under, if the key is one we know.
+
+    The key itself never reaches the log. The role does, because the question
+    an audit asks is whether a mechanic has been trying to grant deferrals,
+    not which of four mechanics it was.
+    """
+    ring = getattr(request.app.state, "keys", None)
+    sent = request.headers.get("x-api-key")
+    if ring is None or not sent:
+        return None
+    try:
+        return str(ring.holder_of(sent).role)
+    except DoublerbayError:
+        return None
+
+
 def build_app(deps: Deps) -> FastAPI:
     """Build the application with its dependencies handed in rather than imported."""
+    configure()
     app = FastAPI(title=TITLE, version=VERSION)
     app.state.deps = deps
     app.state.keys = deps.keys if deps.keys is not None else open_ring()
 
     @app.exception_handler(DoublerbayError)
     async def _refused(request: Request, error: DoublerbayError) -> JSONResponse:
+        write(
+            refused(
+                reference=request.url.path,
+                kind=type(error).__name__,
+                why=str(error),
+                role=_role_on(request),
+            )
+        )
         return JSONResponse(status_code=status_for(error), content=problem_of(error).model_dump())
 
     from doublerbay.api import (
