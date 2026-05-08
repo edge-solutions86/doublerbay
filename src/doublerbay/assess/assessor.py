@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from doublerbay.assess.joints import checks_for
 from doublerbay.assess.placement import Placement, place
 from doublerbay.assess.rules import CHECKS, Case
 from doublerbay.assess.verdict import Disposition, Reason, Verdict
@@ -80,8 +81,12 @@ def assess(book: Book, tail: TailContext, finding: Finding) -> Assessment:
 
     reasons: list[Reason] = []
     worst = Disposition.ALLOWABLE
-    for check in CHECKS:
-        answer = check(case)
+    answers = [check(case) for check in CHECKS]
+    # The joint rules run after the ordinary ones and only ever make the
+    # answer worse. A damage in a fastener row still has to clear every limit
+    # that applies away from one.
+    answers.extend(checks_for(case, placement.joint))
+    for answer in answers:
         if answer is None:
             continue
         reasons.append(answer.reason)

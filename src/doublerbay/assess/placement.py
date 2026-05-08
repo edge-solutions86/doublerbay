@@ -26,6 +26,7 @@ from doublerbay.ids import PanelId
 from doublerbay.measure.fastener import FastenerSize
 from doublerbay.measure.length import Length
 from doublerbay.structure.build import Region
+from doublerbay.structure.joint import Joint
 from doublerbay.structure.material import Material
 from doublerbay.structure.panel import PanelKind
 
@@ -44,6 +45,10 @@ class Placement:
     panel_extent: Length
     centre: Offset
     nearest_fastener: FastenerSize | None = None
+    # The joint the damage landed on, kept rather than discarded. It was
+    # resolved anyway to work out the fastener size, and the rules that only
+    # apply in a fastener row need the joint itself rather than its size.
+    joint: Joint | None = None
 
     def __post_init__(self) -> None:
         if self.thickness.mils <= 0:
@@ -82,6 +87,7 @@ def _fuselage_placement(tail: TailContext, point: FuselagePoint) -> Placement:
         panel_extent=max(along, around),
         centre=barrel.grid.absolute(point),
         nearest_fastener=fastener,
+        joint=joint,
     )
 
 
