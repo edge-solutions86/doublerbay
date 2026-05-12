@@ -33,6 +33,8 @@ from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
 from doublerbay.ids import Registration, Serial
 from doublerbay.measure.usage import Cycles, Hours, Usage
 from doublerbay.service.readings import post_all
+from doublerbay.service.seeding import LATEST
+from doublerbay.service.seeding import seed as seed_fleet
 from doublerbay.store.base import IN_MEMORY, build_engine, build_schema, table_names
 from doublerbay.store.unit import UnitOfWork
 
@@ -177,3 +179,13 @@ def fleet_import(context: click.Context, document: Path) -> None:
     click.echo(str(taken))
     for one in taken.refused:
         click.echo(f"  {one}")
+
+
+@cli.command()
+@click.option("--on", "on_day", default=None, help="the day the fleet is seeded as of")
+@click.pass_context
+def seed(context: click.Context, on_day: str | None) -> None:
+    """Put a small demonstration fleet on an empty database."""
+    with UnitOfWork(context.obj["engine"]) as unit:
+        answer = seed_fleet(unit, as_date(on_day) if on_day else LATEST)
+    click.echo(f"seeded {answer}")
