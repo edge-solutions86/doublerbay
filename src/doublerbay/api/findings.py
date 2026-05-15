@@ -189,3 +189,65 @@ async def of_kind(kind: str, deps=Depends(deps)) -> list[FindingOut]:
     with UnitOfWork(deps.engine) as unit:
         held = read_enum(DamageKind, kind, "kind of damage")
         return [finding_out(one) for one in unit.findings.of_kind(held)]
+
+
+class StateIn(BaseModel):
+    """A move the desk is asking to make on a card."""
+
+    state: str
+    on: date
+    by: str
+    note: str = ""
+
+
+class DispositionOut(BaseModel):
+    reference: str
+    state: str
+    open: bool
+    moves: list[str]
+
+
+@router.post("/{reference}/state", response_model=DispositionOut, status_code=200)
+async def move_state(
+    reference: str,
+    body: StateIn,
+    deps=Depends(deps),
+    key=Depends(require(Action.DISPOSITION)),
+) -> DispositionOut:
+    """Move a card to another state, refusing anything the lifecycle forbids.
+
+    This is the route the whole surface was missing. Every other write moves
+    the card as a side effect of something else, so the plain act of saying "I
+    have looked this up and it is assessed" had no way through at all, and the
+    only way to do it was to reach into the database.
+    """
+    held = reference_from(reference)
+    with UnitOfWork(deps.engine) as unit:
+        unit.findings.latest(held)
+        record = unit.dispositions.get(held)
+        moved = record.moved_to(
+            read_enum(DispositionState, body.state, "disposition state"),
+            body.on,
+            body.by,
+            body.note,
+        )
+        unit.dispositions.save(moved)
+        return DispositionOut(
+            reference=str(moved.reference),
+            state=moved.state.value,
+            open=moved.is_open,
+            moves=[str(one) for one in moved.history],
+        )
+
+
+@router.get("/{reference}/state", response_model=DispositionOut)
+async def read_state(reference: str, deps=Depends(deps)) -> DispositionOut:
+    """Where a card is now, and everything it has been through."""
+    with UnitOfWork(deps.engine) as unit:
+        record = unit.dispositions.get(reference_from(reference))
+    return DispositionOut(
+        reference=str(record.reference),
+        state=record.state.value,
+        open=record.is_open,
+        moves=[str(one) for one in record.history],
+    )
