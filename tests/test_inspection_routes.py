@@ -1,14 +1,9 @@
 from datetime import date
 
-from fastapi.testclient import TestClient
-
 import sample
-from doublerbay.api.app import Deps, build_app
+from conftest import client_for, enrolled, new_engine
 from doublerbay.disposition.state import DispositionRecord, DispositionState
-from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId
-from doublerbay.manual.book import v320_book
-from doublerbay.store.base import build_engine, build_schema
 from doublerbay.store.unit import UnitOfWork
 
 DAY = date(2025, 3, 14)
@@ -17,13 +12,10 @@ CHIEF = {"x-api-key": "chief-key-0001"}
 
 
 def built():
-    engine = build_engine()
-    build_schema(engine)
-    app = build_app(Deps(engine=engine, book=v320_book(), catalogue=TypeCatalogue(), today=DAY))
-    with UnitOfWork(engine) as unit:
-        unit.aircraft.add(sample.aircraft())
-        unit.aircraft.open_log(sample.flying_log())
-    return engine, TestClient(app, headers=CHIEF)
+    """One engine and a chief engineer's client, off the shared fixtures."""
+    engine = new_engine()
+    enrolled(engine)
+    return engine, client_for(engine)
 
 
 def assessed(engine, sequence=1):
