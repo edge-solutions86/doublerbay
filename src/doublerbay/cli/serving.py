@@ -13,9 +13,12 @@ day it is deployed rather than the day an aeroplane is on the ground.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
 from doublerbay.api.app import Deps, build_app
+from doublerbay.api.contract import as_document, endpoints, unguarded_writes, writes
 from doublerbay.api.keyfile import missing_roles, ring_from_file, roles_on
 from doublerbay.cli.output import columns
 from doublerbay.config import Settings, described, from_environment
@@ -92,3 +95,45 @@ def serve(host: str | None, port: int | None) -> None:
         port=port or settings.port,
         log_level="info",
     )
+
+
+@click.command("routes")
+@click.option("--writes-only", is_flag=True, help="only the routes that change something")
+def show_routes(writes_only: bool) -> None:
+    """Every route this service serves, and whether anything guards it."""
+    built = build_app(
+        Deps(
+            engine=build_engine(),
+            book=v320_book(),
+            catalogue=TypeCatalogue(),
+        )
+    )
+    found = writes(built) if writes_only else endpoints(built)
+    rows: list[tuple[str, ...]] = [("method", "path", "guard", "summary")]
+    rows.extend(
+        (
+            one.method,
+            one.path,
+            "guarded" if one.guarded else "open",
+            one.summary,
+        )
+        for one in found
+    )
+    click.echo(columns(rows))
+    open_writes = unguarded_writes(built)
+    if open_writes:
+        click.echo("")
+        click.echo(f"{len(open_writes)} writes nothing is guarding")
+
+
+@click.command("contract")
+@click.option("--to", "path", default=None, type=click.Path(path_type=Path))
+def show_contract(path: Path | None) -> None:
+    """Print the openapi contract, or write it to a file to be checked in."""
+    built = build_app(Deps(engine=build_engine(), book=v320_book(), catalogue=TypeCatalogue()))
+    document = as_document(built)
+    if path is None:
+        click.echo(document)
+        return
+    path.write_text(document, encoding="utf-8")
+    click.echo(f"wrote {len(document.splitlines())} lines to {path}")
