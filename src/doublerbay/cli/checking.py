@@ -12,11 +12,14 @@ copying exercise.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
 from doublerbay.cli.output import as_date, columns, say_nothing_found
 from doublerbay.ids import RepairId, Serial
 from doublerbay.measure.usage import Cycles, Hours, Usage
+from doublerbay.report.export import pack_as_csv
 from doublerbay.report.workpack import WorkPack, build
 from doublerbay.store.unit import UnitOfWork
 
@@ -50,14 +53,28 @@ def pack_rows(pack: WorkPack) -> list[tuple[str, ...]]:
 @click.option("--opens", required=True, help="the day the aeroplane comes in")
 @click.option("--closes", required=True, help="the day it goes back out")
 @click.option("--within", type=int, default=None, help="pull work in from this many days ahead")
+@click.option(
+    "--csv", "as_file", default=None, type=click.Path(path_type=Path), help="write a file"
+)
 @click.pass_context
 def check_pack(
-    context: click.Context, serial: str, opens: str, closes: str, within: int | None
+    context: click.Context,
+    serial: str,
+    opens: str,
+    closes: str,
+    within: int | None,
+    as_file: Path | None,
 ) -> None:
     """Everything one tail owes the desk at one check."""
     held = Serial(serial)
     with UnitOfWork(context.obj["engine"]) as unit:
         pack = build(unit, held, as_date(opens), as_date(closes), within)
+    if as_file is not None:
+        # newline="" or the platform translates the line ending this file
+        # already carries, and a spreadsheet reads every other row as blank.
+        as_file.write_text(pack_as_csv(pack), encoding="utf-8", newline="")
+        click.echo(f"wrote {pack.total} rows to {as_file}")
+        return
     click.echo(str(pack))
     if pack.is_empty:
         return

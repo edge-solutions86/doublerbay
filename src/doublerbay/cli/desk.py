@@ -16,6 +16,7 @@ not looked up.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import click
 
@@ -31,6 +32,7 @@ from doublerbay.report.desk import (
     open_across_fleet,
     open_on_tail,
 )
+from doublerbay.report.export import due_as_csv
 from doublerbay.store.unit import UnitOfWork
 from doublerbay.tolerance.method import InspectionMethod
 
@@ -166,8 +168,17 @@ def due_rows(items) -> list[tuple[str, ...]]:
 @click.option("--tail", "serial", default=None, help="one tail, or leave it off for the fleet")
 @click.option("--on", "on_day", required=True, help="yyyy-mm-dd")
 @click.option("--within", type=int, default=None, help="only what falls due inside this many days")
+@click.option(
+    "--csv", "as_file", default=None, type=click.Path(path_type=Path), help="write a file"
+)
 @click.pass_context
-def report_due(context: click.Context, serial: str | None, on_day: str, within: int | None) -> None:
+def report_due(
+    context: click.Context,
+    serial: str | None,
+    on_day: str,
+    within: int | None,
+    as_file: Path | None,
+) -> None:
     """What falls due, worst first."""
     day = as_date(on_day)
     with UnitOfWork(context.obj["engine"]) as unit:
@@ -177,6 +188,12 @@ def report_due(context: click.Context, serial: str | None, on_day: str, within: 
             items = tuple(
                 one for report in due_across_fleet(unit, day, within) for one in report.items
             )
+    if as_file is not None:
+        # newline="" or the platform translates the line ending this file
+        # already carries, and a spreadsheet reads every other row as blank.
+        as_file.write_text(due_as_csv(items), encoding="utf-8", newline="")
+        click.echo(f"wrote {len(items)} rows to {as_file}")
+        return
     if not items:
         click.echo(say_nothing_found("due"))
         return
