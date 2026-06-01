@@ -20,8 +20,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from doublerbay.assess.joints import checks_for
+from doublerbay.assess.joints import checks_for as joint_checks
 from doublerbay.assess.placement import Placement, place
+from doublerbay.assess.regions import checks_for as region_checks
 from doublerbay.assess.rules import CHECKS, Case
 from doublerbay.assess.verdict import Disposition, Reason, Verdict
 from doublerbay.damage.finding import Finding
@@ -85,7 +86,11 @@ def assess(book: Book, tail: TailContext, finding: Finding) -> Assessment:
     # The joint rules run after the ordinary ones and only ever make the
     # answer worse. A damage in a fastener row still has to clear every limit
     # that applies away from one.
-    answers.extend(checks_for(case, placement.joint))
+    answers.extend(joint_checks(case, placement.joint))
+    # The region rules follow from the feature the damage landed on, which the
+    # limit tables already vary by. These are the ones about the feature
+    # itself rather than about how big the damage is.
+    answers.extend(region_checks(case))
     for answer in answers:
         if answer is None:
             continue
