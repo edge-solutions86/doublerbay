@@ -192,19 +192,50 @@ class FindingRepository:
         return tuple(row_to_finding(row) for row in rows)
 
     def on_tail(self, serial: Serial) -> tuple[Finding, ...]:
-        references = self._session.execute(
-            select(FindingRow.reference).where(FindingRow.serial == serial).distinct()
-        ).scalars()
-        return tuple(self.latest(reference) for reference in sorted(references, key=str))
+        """Every card on one tail, latest revision only, in one query.
+
+        This used to fetch the references and then read each card back on its
+        own, which is a query per card. The open damage report calls it once
+        per aeroplane, so a fleet of forty tails carrying twenty cards each
+        was eight hundred round trips to answer one question.
+        """
+        return self._latest_of(FindingRow.serial == serial)
 
     def open_on(self, serial: Serial) -> tuple[Finding, ...]:
         return tuple(one for one in self.on_tail(serial) if one.is_open)
 
     def of_kind(self, kind: DamageKind) -> tuple[Finding, ...]:
-        references = self._session.execute(
-            select(FindingRow.reference).where(FindingRow.kind == kind.value).distinct()
-        ).scalars()
-        return tuple(self.latest(reference) for reference in sorted(references, key=str))
+        return self._latest_of(FindingRow.kind == kind.value)
+
+    def _latest_of(self, where) -> tuple[Finding, ...]:
+        """The latest revision of every card matching a condition, in one read.
+
+        Ordered by reference then revision, so walking the rows in order
+        leaves the last one seen per reference as the latest. A window
+        function would do it in the database and would not run on every
+        engine this desk might sit on.
+        """
+        rows = self._session.scalars(
+            select(FindingRow).where(where).order_by(FindingRow.reference, FindingRow.revision)
+        ).all()
+        latest: dict[FindingId, FindingRow] = {}
+        for row in rows:
+            latest[row.reference] = row
+        return tuple(row_to_finding(latest[one]) for one in sorted(latest, key=str))
+
+    def serials_for(self, references: tuple[FindingId, ...]) -> dict[FindingId, Serial]:
+        """Which tail each of a set of cards is on, in one query rather than many.
+
+        The due list asks this for every live deferral on the fleet. Asking it
+        one card at a time is a query per deferral, which is fine at twenty
+        and is four hundred round trips at four hundred.
+        """
+        if not references:
+            return {}
+        rows = self._session.scalars(
+            select(FindingRow).where(FindingRow.reference.in_(references))
+        ).all()
+        return {row.reference: row.serial for row in rows}
 
     def next_reference(self, year: int) -> FindingId:
         used = self._session.execute(select(FindingRow.reference).distinct()).scalars()

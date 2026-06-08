@@ -83,21 +83,15 @@ def due_on_tail(
     context_for(unit, catalogue or TypeCatalogue(), serial, on)
     forecast, measured = rate_for(unit, serial)
     flown = unit.aircraft.log_for(serial).at(on)
-    deferrals = tuple(one for one in unit.deferrals.live() if _is_on(unit, one.against, serial))
+    live = unit.deferrals.live()
+    on_tail = unit.findings.serials_for(tuple(one.against for one in live))
+    deferrals = tuple(one for one in live if on_tail.get(one.against) == serial)
     return DueReport(
         serial=serial,
         on=on,
         items=due_list(deferrals, serial, flown, forecast, on, within_days),
         measured_rate=measured,
     )
-
-
-def _is_on(unit: UnitOfWork, reference, serial: Serial) -> bool:
-    """Whether a card belongs to a tail, without loading the whole register."""
-    try:
-        return unit.findings.latest(reference).serial == serial
-    except DoublerbayError:
-        return False
 
 
 def due_across_fleet(
