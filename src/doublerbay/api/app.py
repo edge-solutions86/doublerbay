@@ -39,11 +39,43 @@ STATUS_FOR: dict[type[DoublerbayError], int] = {
 }
 
 
+# A stable slug per refusal, because a client branching on a class name is a
+# client that breaks when somebody renames a class for tidiness.
+SLUG_FOR: dict[type[DoublerbayError], str] = {
+    BadReading: "bad-reading",
+    Refused: "refused",
+    NotOnFile: "not-on-file",
+    OutOfSequence: "out-of-sequence",
+}
+UNKNOWN_SLUG = "unexpected"
+
+
 class Problem(BaseModel):
     """What every failure comes back as."""
 
+    type: str = Field(description="a stable slug a client can branch on")
     kind: str = Field(description="which sort of refusal it was")
     detail: str = Field(description="what the desk would say out loud")
+    where: str = Field(default="", description="the path that was asked for")
+    retryable: bool = Field(default=False, description="whether the same request could work later")
+
+
+def slug_for(error: DoublerbayError) -> str:
+    """The stable name for one refusal, which never changes once it ships."""
+    for kind, slug in SLUG_FOR.items():
+        if isinstance(error, kind):
+            return slug
+    return UNKNOWN_SLUG
+
+
+def is_retryable(error: DoublerbayError) -> bool:
+    """Whether the same request might work later without the caller changing it.
+
+    A lookup miss might: the record could be created a minute from now. A bad
+    reading never will, because the caller sent something the desk cannot
+    read, and a client that retries it will retry it forever.
+    """
+    return isinstance(error, NotOnFile | OutOfSequence)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,8 +100,14 @@ def status_for(error: DoublerbayError) -> int:
     return 500
 
 
-def problem_of(error: DoublerbayError) -> Problem:
-    return Problem(kind=type(error).__name__, detail=str(error))
+def problem_of(error: DoublerbayError, where: str = "") -> Problem:
+    return Problem(
+        type=slug_for(error),
+        kind=type(error).__name__,
+        detail=str(error),
+        where=where,
+        retryable=is_retryable(error),
+    )
 
 
 def _role_on(request: Request) -> str | None:
@@ -106,7 +144,9 @@ def build_app(deps: Deps) -> FastAPI:
                 role=_role_on(request),
             )
         )
-        return JSONResponse(status_code=status_for(error), content=problem_of(error).model_dump())
+        return JSONResponse(
+            status_code=status_for(error), content=problem_of(error, request.url.path).model_dump()
+        )
 
     from doublerbay.api import (
         assessment,

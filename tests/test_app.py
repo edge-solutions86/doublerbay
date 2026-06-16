@@ -100,7 +100,7 @@ def test_the_status_table_covers_every_refusal_the_package_raises():
 def test_every_failure_comes_back_in_the_same_shape():
     problem = problem_of(NotOnFile("nothing here"))
     assert isinstance(problem, Problem)
-    assert set(problem.model_dump()) == {"kind", "detail"}
+    assert set(problem.model_dump()) == {"type", "kind", "detail", "where", "retryable"}
 
 
 def test_the_day_a_request_is_answered_as_of_can_be_pinned():
