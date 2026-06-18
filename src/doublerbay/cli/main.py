@@ -20,6 +20,7 @@ import click
 from doublerbay.cli.assessing import assess_card, assess_tail
 from doublerbay.cli.cards import cards
 from doublerbay.cli.checking import check
+from doublerbay.cli.corroding import corrosion
 from doublerbay.cli.desk import defer, report
 from doublerbay.cli.ordering import order
 from doublerbay.cli.output import as_date, columns
@@ -157,6 +158,7 @@ cli.add_command(report)
 cli.add_command(repair)
 cli.add_command(order)
 cli.add_command(check)
+cli.add_command(corrosion)
 cli.add_command(serve)
 cli.add_command(show_settings)
 cli.add_command(show_variables)
