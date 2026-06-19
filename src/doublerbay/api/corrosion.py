@@ -17,11 +17,10 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.deps import deps, reference_from, tail_on
 from doublerbay.api.schemas import read_enum
 from doublerbay.api.security import Action, require
 from doublerbay.errors import BadReading
-from doublerbay.ids import Serial
 from doublerbay.report.corrosion import ProgrammeReport, programme_report
 from doublerbay.store.unit import UnitOfWork
 from doublerbay.tolerance.corrosion import CorrosionEntry, CorrosionLevel
@@ -127,9 +126,7 @@ async def at_level(level: int, deps=Depends(deps)) -> list[EntryOut]:
 async def on_tail(serial: str, deps=Depends(deps)) -> list[EntryOut]:
     """Every graded finding on one aeroplane, oldest first."""
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
-        return [entry_out(one) for one in unit.corrosion.on_tail(held)]
+        return [entry_out(one) for one in unit.corrosion.on_tail(tail_on(unit, serial))]
 
 
 @router.get("/aircraft/{serial}/programme", response_model=ProgrammeOut)
@@ -138,8 +135,7 @@ async def programme(serial: str, since: date, until: date, deps=Depends(deps)) -
     if until < since:
         raise BadReading("a reporting window ends after it starts")
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
+        held = tail_on(unit, serial)
         entries = unit.corrosion.on_tail(held)
     return programme_out(programme_report(held, entries, since, until))
 

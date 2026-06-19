@@ -19,10 +19,9 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.deps import deps, reference_from, tail_on
 from doublerbay.damage.kind import DamageKind
 from doublerbay.errors import BadReading, DoublerbayError
-from doublerbay.ids import Serial
 from doublerbay.report.growth import Growth, growth_of
 from doublerbay.store.unit import UnitOfWork
 
@@ -140,8 +139,7 @@ async def fleet_growth(on: date, deps=Depends(deps)) -> FleetGrowthOut:
 async def tail_growth(serial: str, deps=Depends(deps)) -> list[GrowthOut]:
     """Every tracked crack on one aeroplane, fastest first."""
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
+        held = tail_on(unit, serial)
         built = [
             growth_for(unit, one.reference)
             for one in unit.findings.on_tail(held)

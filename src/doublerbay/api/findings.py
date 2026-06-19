@@ -17,7 +17,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.deps import deps, reference_from, tail_on
 from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import (
     FindingIn,
@@ -30,7 +30,6 @@ from doublerbay.api.schemas import (
 from doublerbay.api.security import Action, require
 from doublerbay.damage.kind import DamageKind
 from doublerbay.disposition.state import DispositionState
-from doublerbay.ids import Serial
 from doublerbay.service.intake import next_reference, take_in
 from doublerbay.service.measuring import re_measure
 from doublerbay.store.unit import UnitOfWork
@@ -174,8 +173,7 @@ async def on_tail(
     """
     asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
+        held = tail_on(unit, serial)
         cards = unit.findings.open_on(held) if open_only else unit.findings.on_tail(held)
         return paged(cards, asked, finding_out)
 

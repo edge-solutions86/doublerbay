@@ -16,7 +16,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps
+from doublerbay.api.deps import deps, tail_on
 from doublerbay.ids import Serial
 from doublerbay.report.audit import StructureAudit, audit
 from doublerbay.store.unit import UnitOfWork
@@ -106,7 +106,6 @@ def line_out(built: StructureAudit) -> FleetLineOut:
 
 def audit_tail(unit: UnitOfWork, serial: Serial, on: date) -> StructureAudit:
     """One tail's audit, off the repairs still fitted to it."""
-    unit.aircraft.get(serial)
     return audit(serial, unit.repairs.on_tail(serial), on)
 
 
@@ -114,7 +113,7 @@ def audit_tail(unit: UnitOfWork, serial: Serial, on: date) -> StructureAudit:
 async def tail_audit(serial: str, on: date, deps=Depends(deps)) -> AuditOut:
     """What one aeroplane's structure is carrying."""
     with UnitOfWork(deps.engine) as unit:
-        return audit_out(audit_tail(unit, Serial(serial), on))
+        return audit_out(audit_tail(unit, tail_on(unit, serial), on))
 
 
 @router.get("", response_model=FleetAuditOut)

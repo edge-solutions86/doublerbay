@@ -48,3 +48,16 @@ def serial_from(text: str) -> Serial:
 def day_or(deps_in, on: date | None) -> date:
     """The day a request is answered as of, taking the service's own if none given."""
     return on if on is not None else deps_in.on()
+
+
+def tail_on(unit, serial: str) -> Serial:
+    """The serial off a path, checked against the register before anything else.
+
+    Eleven routes were writing the same two lines: parse the serial, then ask
+    the register for it and throw the aeroplane away. The lookup is not
+    decoration. Without it a mistyped serial comes back as an empty list,
+    which reads as an aeroplane with nothing wrong with it.
+    """
+    held = serial_from(serial)
+    unit.aircraft.get(held)
+    return held

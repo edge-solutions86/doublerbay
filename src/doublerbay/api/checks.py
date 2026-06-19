@@ -19,9 +19,8 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps
+from doublerbay.api.deps import deps, tail_on
 from doublerbay.errors import BadReading
-from doublerbay.ids import Serial
 from doublerbay.report.workpack import PackLine, WorkPack, build, references_on
 from doublerbay.store.unit import UnitOfWork
 
@@ -94,6 +93,4 @@ async def work_pack(
     """Everything one tail owes the desk between two days."""
     reach = checked_pull(within)
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
-        return pack_out(build(unit, held, opens, closes, reach))
+        return pack_out(build(unit, tail_on(unit, serial), opens, closes, reach))

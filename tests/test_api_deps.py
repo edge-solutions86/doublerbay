@@ -101,3 +101,39 @@ def test_nothing_here_imports_a_route():
     imports = [line for line in written.splitlines() if line.startswith("from doublerbay")]
     assert imports
     assert all("doublerbay.api." not in line for line in imports)
+
+
+def test_a_tail_on_the_register_comes_back():
+    import sample
+    from conftest import new_engine
+    from doublerbay.api.deps import tail_on
+    from doublerbay.store.unit import UnitOfWork
+
+    engine = new_engine()
+    with UnitOfWork(engine) as unit:
+        unit.aircraft.add(sample.aircraft())
+        unit.aircraft.open_log(sample.flying_log())
+    with UnitOfWork(engine) as unit:
+        assert tail_on(unit, "5127") == Serial("5127")
+
+
+def test_a_tail_that_is_not_on_the_register_is_refused():
+    from conftest import new_engine
+    from doublerbay.api.deps import tail_on
+    from doublerbay.errors import NotOnFile
+    from doublerbay.store.unit import UnitOfWork
+
+    engine = new_engine()
+    with UnitOfWork(engine) as unit, pytest.raises(NotOnFile):
+        tail_on(unit, "9999")
+
+
+def test_a_serial_that_is_not_one_is_refused_before_the_register_is_asked():
+    """The parse refuses first, which is a bad reading rather than a miss."""
+    from conftest import new_engine
+    from doublerbay.api.deps import tail_on
+    from doublerbay.store.unit import UnitOfWork
+
+    engine = new_engine()
+    with UnitOfWork(engine) as unit, pytest.raises(BadReading, match="not a serial number"):
+        tail_on(unit, "not a serial")

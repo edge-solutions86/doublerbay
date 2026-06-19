@@ -18,14 +18,14 @@ from datetime import date
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps, reference_from
+from doublerbay.api.deps import deps, reference_from, tail_on
 from doublerbay.api.paging import Page, paged, window
 from doublerbay.api.schemas import inches
 from doublerbay.api.security import Action, require
 from doublerbay.assess.placement import place
 from doublerbay.grid.ata import Reference
 from doublerbay.grid.surface import Offset
-from doublerbay.ids import RepairId, Serial
+from doublerbay.ids import RepairId
 from doublerbay.measure.fastener import FastenerSize
 from doublerbay.repair.record import RepairRecord
 from doublerbay.repair.scheme import select_scheme
@@ -182,9 +182,7 @@ async def on_tail(
     """Every repair on one aeroplane, still fitted or ever fitted."""
     asked = window(offset, limit)
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
-        return paged(unit.repairs.on_tail(held, fitted_only), asked, repair_out)
+        return paged(unit.repairs.on_tail(tail_on(unit, serial), fitted_only), asked, repair_out)
 
 
 @router.get("/{chapter}/{sequence}", response_model=RepairOut)

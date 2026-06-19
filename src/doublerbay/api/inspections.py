@@ -18,10 +18,10 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from doublerbay.api.deps import deps
+from doublerbay.api.deps import deps, tail_on
 from doublerbay.api.schemas import UsageIn, UsageOut
 from doublerbay.api.security import Action, require
-from doublerbay.ids import RepairId, Serial
+from doublerbay.ids import RepairId
 from doublerbay.store.unit import UnitOfWork
 from doublerbay.tolerance.programme import InspectionTask
 
@@ -91,26 +91,21 @@ def _due_out(task: InspectionTask) -> DueOut | None:
 async def on_tail(serial: str, deps=Depends(deps)) -> list[TaskOut]:
     """Every repeat inspection on one aeroplane, oldest repair first."""
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
-        return [task_out(one) for one in unit.inspections.on_tail(held)]
+        return [task_out(one) for one in unit.inspections.on_tail(tail_on(unit, serial))]
 
 
 @router.get("/aircraft/{serial}/never-done", response_model=list[TaskOut])
 async def never_done(serial: str, deps=Depends(deps)) -> list[TaskOut]:
     """The ones nobody has signed off yet, where the threshold still bites."""
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
-        return [task_out(one) for one in unit.inspections.never_done(held)]
+        return [task_out(one) for one in unit.inspections.never_done(tail_on(unit, serial))]
 
 
 @router.get("/aircraft/{serial}/due", response_model=list[TaskOut])
 async def due_on(serial: str, on: date, deps=Depends(deps)) -> list[TaskOut]:
     """Everything on one tail that has come due as of a day."""
     with UnitOfWork(deps.engine) as unit:
-        held = Serial(serial)
-        unit.aircraft.get(held)
+        held = tail_on(unit, serial)
         flown = unit.aircraft.log_for(held).at(on)
         return [task_out(one) for one in unit.inspections.due_on(held, flown, on)]
 
