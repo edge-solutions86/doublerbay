@@ -23,7 +23,9 @@ import click
 from doublerbay.cli.output import as_date, columns, say_nothing_found
 from doublerbay.disposition.deferral import grant
 from doublerbay.disposition.state import DispositionState
+from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.ids import FindingId, Serial
+from doublerbay.manual.book import v320_book
 from doublerbay.measure.interval import Interval
 from doublerbay.report.desk import (
     due_across_fleet,
@@ -33,6 +35,7 @@ from doublerbay.report.desk import (
     open_on_tail,
 )
 from doublerbay.report.export import due_as_csv
+from doublerbay.report.revision import sweep
 from doublerbay.store.unit import UnitOfWork
 from doublerbay.tolerance.method import InspectionMethod
 
@@ -268,3 +271,31 @@ def open_rows(counted) -> list[tuple[str, str]]:
 def today_or(day: str | None) -> date:
     """A day off the command line, or the real one when it is left off."""
     return as_date(day) if day else date.today()
+
+
+@report.command("revision")
+@click.option("--before", required=True, help="a day the old book was in force")
+@click.option("--after", required=True, help="a day the new one is")
+@click.pass_context
+def report_revision(context: click.Context, before: str, after: str) -> None:
+    """Which open cards a revision of the manual would answer differently."""
+    with UnitOfWork(context.obj["engine"]) as unit:
+        swept = sweep(unit, v320_book(), TypeCatalogue(), as_date(before), as_date(after))
+    click.echo(str(swept))
+    if swept.is_quiet:
+        return
+    click.echo("")
+    rows: list[tuple[str, ...]] = [("card", "tail", "was", "now", "way")]
+    rows.extend(
+        (
+            str(one.reference),
+            one.serial.number,
+            one.was.value,
+            one.now.value,
+            "worse" if one.got_worse else "better",
+        )
+        for one in swept.moved
+    )
+    click.echo(columns(rows))
+    for reference in swept.unreadable:
+        click.echo(f"could not assess {reference}")
