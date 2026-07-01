@@ -24,7 +24,9 @@ from fastapi.testclient import TestClient
 
 import sample
 from doublerbay.api.app import Deps, build_app
+from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.fleet.catalogue import TypeCatalogue
+from doublerbay.ids import FindingId
 from doublerbay.manual.book import v320_book
 from doublerbay.store.base import build_engine, build_schema
 from doublerbay.store.unit import UnitOfWork
@@ -87,3 +89,29 @@ def api(stocked):
 def reader(stocked):
     """A client that can only look, for testing what a role may not do."""
     return client_for(stocked, "reader")
+
+
+def raise_card(engine, sequence: int = 1, serial: str = "5127", **rest):
+    """Put one damage card on the register, without dispositioning it.
+
+    Nineteen test modules were each writing their own version of this and its
+    assessed sibling, with the same three lines and slightly different names.
+    They are here so a change to how a card is raised is one edit.
+    """
+    with UnitOfWork(engine) as unit:
+        unit.findings.raise_finding(sample.card(sequence, serial=serial, **rest))
+        unit.dispositions.save(DispositionRecord.raised(FindingId(2025, sequence)))
+    return FindingId(2025, sequence)
+
+
+def assess_card(engine, reference: FindingId, on: date = TODAY, by: str = "a.okonkwo"):
+    """Move a card to assessed, which is where every decision starts."""
+    with UnitOfWork(engine) as unit:
+        held = unit.dispositions.get(reference)
+        unit.dispositions.save(held.moved_to(DispositionState.ASSESSED, on, by))
+    return reference
+
+
+def assessed_card(engine, sequence: int = 1, serial: str = "5127", **rest):
+    """A card on file that has been looked up, which is what a deferral needs."""
+    return assess_card(engine, raise_card(engine, sequence, serial, **rest))

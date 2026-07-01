@@ -3,6 +3,7 @@ from datetime import date
 from fastapi.testclient import TestClient
 
 import sample
+from conftest import assessed_card
 from doublerbay.api.app import Deps, build_app
 from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.fleet.catalogue import TypeCatalogue
@@ -43,15 +44,8 @@ def stocked():
 
 
 def assessed(engine, sequence=1):
-    reference = FindingId(2025, sequence)
-    with UnitOfWork(engine) as unit:
-        unit.findings.raise_finding(sample.card(sequence))
-        unit.dispositions.save(
-            DispositionRecord.raised(reference).moved_to(
-                DispositionState.ASSESSED, DAY, "a.okonkwo"
-            )
-        )
-    return str(reference)
+    """One card, raised and looked up, off the shared helper."""
+    return str(assessed_card(engine, sequence))
 
 
 def body(against, **rest):

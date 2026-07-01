@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 import sample
+from conftest import assessed_card
 from doublerbay.disposition.engineering import OrderId, OrderState, RepairApproval
 from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.errors import BadReading, NotOnFile, OutOfSequence
@@ -38,15 +39,8 @@ def engine():
 
 
 def assessed(engine, sequence=1):
-    reference = FindingId(2025, sequence)
-    with UnitOfWork(engine) as unit:
-        unit.findings.raise_finding(sample.card(sequence))
-        unit.dispositions.save(
-            DispositionRecord.raised(reference).moved_to(
-                DispositionState.ASSESSED, DAY, "a.okonkwo"
-            )
-        )
-    return reference
+    """One card, raised and looked up, off the shared helper."""
+    return assessed_card(engine, sequence)
 
 
 def approval(sheet="RAS-2025-4417", until=date(2027, 1, 1)):

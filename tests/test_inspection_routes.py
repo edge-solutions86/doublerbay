@@ -1,10 +1,7 @@
 from datetime import date
 
 import sample
-from conftest import client_for, enrolled, new_engine
-from doublerbay.disposition.state import DispositionRecord, DispositionState
-from doublerbay.ids import FindingId
-from doublerbay.store.unit import UnitOfWork
+from conftest import assessed_card, client_for, enrolled, new_engine
 
 DAY = date(2025, 3, 14)
 FITTED = "2025-04-02"
@@ -19,15 +16,8 @@ def built():
 
 
 def assessed(engine, sequence=1):
-    reference = FindingId(2025, sequence)
-    with UnitOfWork(engine) as unit:
-        unit.findings.raise_finding(sample.card(sequence, at=sample.cabin_point(stringer=10)))
-        unit.dispositions.save(
-            DispositionRecord.raised(reference).moved_to(
-                DispositionState.ASSESSED, DAY, "a.okonkwo"
-            )
-        )
-    return str(reference)
+    """One card on a fastener row, raised and looked up."""
+    return str(assessed_card(engine, sequence, at=sample.cabin_point(stringer=10)))
 
 
 def fit(api, against, sequence=1, temporary=True, centre=("468.000", "91.000")):

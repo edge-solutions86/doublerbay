@@ -3,11 +3,11 @@ from datetime import date
 from fastapi.testclient import TestClient
 
 import sample
+from conftest import assessed_card
 from doublerbay.api.app import Deps, build_app
-from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
-from doublerbay.ids import FindingId, Serial
+from doublerbay.ids import Serial
 from doublerbay.manual.book import v320_book
 from doublerbay.store.base import build_engine, build_schema
 from doublerbay.store.unit import UnitOfWork
@@ -38,15 +38,8 @@ def built():
 
 
 def assessed(engine, sequence=1):
-    reference = FindingId(2025, sequence)
-    with UnitOfWork(engine) as unit:
-        unit.findings.raise_finding(sample.card(sequence, at=sample.cabin_point(stringer=10)))
-        unit.dispositions.save(
-            DispositionRecord.raised(reference).moved_to(
-                DispositionState.ASSESSED, DAY, "a.okonkwo"
-            )
-        )
-    return str(reference)
+    """One card on a fastener row, raised and looked up."""
+    return str(assessed_card(engine, sequence, at=sample.cabin_point(stringer=10)))
 
 
 def defer(api, against, limit="1 FC", granted="2025-03-14"):

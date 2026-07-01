@@ -3,11 +3,11 @@ from datetime import date
 from click.testing import CliRunner
 
 import sample
+from conftest import assessed_card
 from doublerbay.cli.checking import pack_rows
 from doublerbay.cli.main import cli
-from doublerbay.disposition.state import DispositionRecord, DispositionState
 from doublerbay.fleet.utilisation import Snapshot, UtilisationLog
-from doublerbay.ids import FindingId, RepairId, Serial
+from doublerbay.ids import RepairId, Serial
 from doublerbay.report.workpack import PackLine, WorkPack
 from doublerbay.store.base import build_engine, build_schema
 from doublerbay.store.unit import UnitOfWork
@@ -39,15 +39,8 @@ def stocked():
 
 
 def assessed(engine, sequence=1):
-    reference = FindingId(2025, sequence)
-    with UnitOfWork(engine) as unit:
-        unit.findings.raise_finding(sample.card(sequence, at=sample.cabin_point(stringer=10)))
-        unit.dispositions.save(
-            DispositionRecord.raised(reference).moved_to(
-                DispositionState.ASSESSED, DAY, "a.okonkwo"
-            )
-        )
-    return str(reference)
+    """One card on a fastener row, raised and looked up."""
+    return str(assessed_card(engine, sequence, at=sample.cabin_point(stringer=10)))
 
 
 def fit(engine, reference, sequence=1, centre=("468.000", "91.000")):
