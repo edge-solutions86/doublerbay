@@ -10,12 +10,20 @@ from __future__ import annotations
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from doublerbay.config import read
 from doublerbay.store.base import Base
 from doublerbay.store.tables import *  # noqa: F401, F403
 from doublerbay.store.work import *  # noqa: F401, F403
 
 config = context.config
 target_metadata = Base.metadata
+
+# The url in alembic.ini is the one a developer's laptop uses. Anywhere else
+# it comes from the environment, because a checked in ini file is the wrong
+# place for a production connection string and the right place for a default.
+_configured = read("database")
+if _configured:
+    config.set_main_option("sqlalchemy.url", _configured)
 
 
 def run_migrations_offline() -> None:

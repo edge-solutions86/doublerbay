@@ -1,0 +1,123 @@
+name: checks
+
+# Every gate here is one named in src/doublerbay/tooling/gates.py, and a test
+# asserts this file names all of them. Adding a gate there without adding it
+# here fails that test, which is what keeps the two honest.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # The suite pins the day it answers as of, but anything that reaches for a
+  # real clock should read the same one on a runner as on a laptop.
+  TZ: UTC
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: lint
+        run: ruff check .
+
+      - name: format
+        run: ruff format --check .
+
+      - name: types
+        run: mypy
+
+      - name: tests
+        run: pytest
+
+  database:
+    name: database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # A migration that does not apply to an empty database, or that cannot
+      # be undone, is found at deploy time otherwise. Both directions run
+      # against a real file rather than an in memory database, because the
+      # batch alter table path only behaves the same way on a real one.
+      - name: migrations
+        env:
+          DOUBLERBAY_DATABASE: sqlite+pysqlite:///ci.db
+        run: alembic upgrade head
+
+      - name: rollback
+        env:
+          DOUBLERBAY_DATABASE: sqlite+pysqlite:///ci.db
+        run: alembic downgrade base
+
+  surface:
+    name: surface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # The command exits non zero if anything that writes is unguarded, so
+      # this fails on a route added without a key check rather than shipping.
+      - name: routes
+        run: doublerbay routes
+
+      - name: contract
+        run: doublerbay contract --to openapi.json
+
+      - name: upload the contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: openapi.json
+          if-no-files-found: error

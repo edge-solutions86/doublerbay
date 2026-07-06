@@ -28,6 +28,7 @@ from doublerbay.cli.repairing import repair
 from doublerbay.cli.serving import (
     serve,
     show_contract,
+    show_gates,
     show_routes,
     show_settings,
     show_variables,
@@ -164,6 +165,7 @@ cli.add_command(show_settings)
 cli.add_command(show_variables)
 cli.add_command(show_routes)
 cli.add_command(show_contract)
+cli.add_command(show_gates)
 
 
 def run() -> None:

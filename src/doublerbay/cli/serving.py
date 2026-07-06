@@ -25,6 +25,7 @@ from doublerbay.config import Settings, described, from_environment
 from doublerbay.fleet.catalogue import TypeCatalogue
 from doublerbay.manual.book import v320_book
 from doublerbay.store.base import build_engine, table_names
+from doublerbay.tooling.gates import GATES, failed, run_all
 
 
 def application(settings: Settings):
@@ -123,7 +124,11 @@ def show_routes(writes_only: bool) -> None:
     open_writes = unguarded_writes(built)
     if open_writes:
         click.echo("")
-        click.echo(f"{len(open_writes)} writes nothing is guarding")
+        for one in open_writes:
+            click.echo(f"nothing guards {one}")
+        # Non zero on purpose. The workflow runs this command, so a route
+        # added without a key check fails the build rather than shipping.
+        raise SystemExit(1)
 
 
 @click.command("contract")
@@ -137,3 +142,19 @@ def show_contract(path: Path | None) -> None:
         return
     path.write_text(document, encoding="utf-8")
     click.echo(f"wrote {len(document.splitlines())} lines to {path}")
+
+
+@click.command("gates")
+@click.option("--run", "and_run", is_flag=True, help="run them rather than list them")
+def show_gates(and_run: bool) -> None:
+    """The checks this repository runs on itself, listed or run."""
+    if not and_run:
+        click.echo(columns([(one.name, one.written, one.why) for one in GATES]))
+        return
+    results = run_all()
+    click.echo(columns([(one.name, "ok" if code == 0 else "failed") for one, code in results]))
+    stopped = failed(results)
+    if stopped:
+        click.echo("")
+        click.echo(f"{len(stopped)} gates failed: {', '.join(one.name for one in stopped)}")
+        raise SystemExit(1)
