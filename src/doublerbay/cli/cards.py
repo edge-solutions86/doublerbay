@@ -106,9 +106,15 @@ def template_for(kind: DamageKind, structure: str) -> dict[str, Any]:
 
 
 def read_document(path: Path) -> FindingIn:
-    """Read a card document off disk, refusing an unreadable one by name."""
+    """Read a card document off disk, refusing an unreadable one by name.
+
+    The encoding is named rather than left to the platform. A default is
+    cp1252 on Windows and utf-8 on Linux, so a card carrying a degree sign or
+    an engineer's accented name reads as one thing on the desk and another on
+    the server, and nothing tells anybody which one went into the database.
+    """
     try:
-        loaded = json.loads(path.read_text())
+        loaded = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as broken:
         raise BadReading(f"{path} is not readable json: {broken.msg}") from None
     if not isinstance(loaded, dict):
@@ -222,7 +228,7 @@ def cards_measure(context: click.Context, reference: str, document: Path, on_day
     somebody put a depth gauge on it again.
     """
     held = FindingId.parse(reference)
-    sent = json.loads(document.read_text())
+    sent = json.loads(document.read_text(encoding="utf-8"))
     if not isinstance(sent, dict) or "measurements" not in sent:
         raise BadReading(f"{document} carries no measurements block")
     with UnitOfWork(context.obj["engine"]) as unit:

@@ -43,8 +43,14 @@ def category_named(text: str) -> RepairCategory:
 
 
 def read_question(path: Path) -> str:
-    """Read the question off a file, refusing an empty one."""
-    text = path.read_text().strip()
+    """Read the question off a file, refusing an empty one.
+
+    Named encoding, for the same reason the card document names one. A
+    question to the manufacturer quotes measurements, and a degree sign that
+    survives on one platform and not the other is a letter that goes out
+    wrong.
+    """
+    text = path.read_text(encoding="utf-8").strip()
     if not text:
         raise BadReading(f"{path} has no question in it")
     return text
@@ -54,7 +60,8 @@ def conditions_from(path: Path | None) -> tuple[str, ...]:
     """One condition per line, blank lines dropped."""
     if path is None:
         return ()
-    return tuple(one.strip() for one in path.read_text().splitlines() if one.strip())
+    written = path.read_text(encoding="utf-8")
+    return tuple(one.strip() for one in written.splitlines() if one.strip())
 
 
 @click.group()
