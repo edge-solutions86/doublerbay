@@ -1,119 +1,72 @@
-name: checks
+name: CI
 
-# Every gate here is one named in src/doublerbay/tooling/gates.py, and a test
-# asserts this file names all of them. Adding a gate there without adding it
-# here fails that test, which is what keeps the two honest.
+# Every gate here is one named in tooling/Gates.java, and a test asserts this
+# file names all of them. Adding a gate there without adding it here fails that
+# test, which is what keeps the two honest.
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  PYTHONDONTWRITEBYTECODE: "1"
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
   # The suite pins the day it answers as of, but anything that reaches for a
   # real clock should read the same one on a runner as on a laptop.
   TZ: UTC
 
 jobs:
-  quality:
-    name: quality
+  build:
+    name: build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: set up python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: set up java 21
+        uses: actions/setup-java@v4
         with:
-          python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: pyproject.toml
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
 
-      - name: install
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+      # Compiles, checks the format, runs the suite with its coverage gate, and
+      # writes the runnable jar the surface steps below use.
+      - name: build
+        run: ./gradlew build
 
+      # The rules the whole repository is written to: every warning is an error.
       - name: lint
-        run: ruff check .
+        run: ./gradlew compileJava compileTestJava
 
+      # A formatting argument in a review is an argument nobody needs.
       - name: format
-        run: ruff format --check .
+        run: ./gradlew spotlessCheck
 
+      # A measurement passed as the wrong unit is a type error here.
       - name: types
-        run: mypy
+        run: ./gradlew compileJava
 
+      # The suite, which is the only thing that says the rules are right.
       - name: tests
-        run: pytest
-
-  database:
-    name: database
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: set up python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-
-      - name: install
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+        run: ./gradlew test
 
       # A migration that does not apply to an empty database, or that cannot
-      # be undone, is found at deploy time otherwise. Both directions run
-      # against a real file rather than an in memory database, because the
-      # batch alter table path only behaves the same way on a real one.
+      # be undone, is found at deploy time otherwise. Both directions run.
       - name: migrations
-        env:
-          DOUBLERBAY_DATABASE: sqlite+pysqlite:///ci.db
-        run: alembic upgrade head
+        run: ./gradlew test --tests *MigrationsTest
 
       - name: rollback
-        env:
-          DOUBLERBAY_DATABASE: sqlite+pysqlite:///ci.db
-        run: alembic downgrade base
-
-  surface:
-    name: surface
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: set up python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-
-      - name: install
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+        run: ./gradlew test --tests *MigrationsTest.theSchemaComesApartAgain
 
       # The command exits non zero if anything that writes is unguarded, so
       # this fails on a route added without a key check rather than shipping.
       - name: routes
-        run: doublerbay routes
+        run: java -jar build/libs/doublerbay-0.1.0.jar routes
 
       - name: contract
-        run: doublerbay contract --to openapi.json
+        run: java -jar build/libs/doublerbay-0.1.0.jar contract --to openapi.json
 
       - name: upload the contract
         uses: actions/upload-artifact@v4
