@@ -13,14 +13,3 @@ out/
 *.trace.db
 *.sqlite3
 *.db
-
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-dist/
-*.egg-info/
-.venv/
