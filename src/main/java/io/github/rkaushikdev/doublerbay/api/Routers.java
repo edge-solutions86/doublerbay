@@ -25,6 +25,7 @@ final class Routers {
             CheckRoutes.class,
             AuditRoutes.class,
             GrowthRoutes.class,
+            HistoryRoutes.class,
             ServiceRoutes.class);
 
     private Routers() {}
