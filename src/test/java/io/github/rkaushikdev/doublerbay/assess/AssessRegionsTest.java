@@ -17,6 +17,7 @@ import io.github.rkaushikdev.doublerbay.support.Sample;
 import io.github.rkaushikdev.doublerbay.util.Decimals;
 import java.math.BigDecimal;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class AssessRegionsTest {
@@ -221,5 +222,14 @@ class AssessRegionsTest {
     void aCrackAtACornerCollectsTheCornerRule() {
         Case found = caseOf(crack("0.500"), Region.CUTOUT_CORNER, DamageKind.CRACK, DamageOrigin.FATIGUE);
         assertThat(Regions.checksFor(found)).hasSize(1);
+    }
+
+    @Test
+    void theRegionRulesReachARealVerdict() {
+        Finding finding = card(null, DamageKind.DENT, DamageOrigin.IMPACT);
+        Assessment answer = Assessor.assess(Book.v320(), Sample.tailContext(), finding);
+        Set<String> named =
+                answer.verdict().reasons().stream().map(Reason::rule).collect(Collectors.toSet());
+        assertThat(named).contains("allowable");
     }
 }
