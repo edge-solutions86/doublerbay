@@ -22,6 +22,7 @@ final class Routers {
             RepairRoutes.class,
             OrderRoutes.class,
             InspectionRoutes.class,
+            CheckRoutes.class,
             AuditRoutes.class,
             GrowthRoutes.class,
             ServiceRoutes.class);
