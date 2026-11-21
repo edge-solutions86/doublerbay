@@ -1,0 +1,113 @@
+package io.github.rkaushikdev.doublerbay.api;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.rkaushikdev.doublerbay.support.Api;
+import io.github.rkaushikdev.doublerbay.support.Desk;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.ConfigurableApplicationContext;
+
+class ContractTest {
+
+    private static ConfigurableApplicationContext app() {
+        return Api.clientFor(Desk.newDatabase()).app();
+    }
+
+    @Test
+    void everyRouteCarriesAPathAndAMethod() {
+        for (Endpoint one : Contract.endpoints(app())) {
+            assertThat(one.path()).startsWith("/");
+            assertThat(one.method()).isNotEmpty();
+        }
+    }
+
+    @Test
+    void theRoutesComeBackInPathOrder() {
+        List<String> paths =
+                Contract.endpoints(app()).stream().map(Endpoint::path).toList();
+        assertThat(paths).isSorted();
+    }
+
+    @Test
+    void aPostIsAWrite() {
+        assertThat(new Endpoint("/x", "POST", "x", "x", true, List.of()).writes())
+                .isTrue();
+    }
+
+    @Test
+    void aGetIsNotAWrite() {
+        assertThat(new Endpoint("/x", "GET", "x", "x", true, List.of()).writes())
+                .isFalse();
+    }
+
+    @Test
+    void theWritingMethodsAreTheOnesThatChangeSomething() {
+        assertThat(Contract.WRITING).isEqualTo(Set.of("POST", "PUT", "PATCH", "DELETE"));
+    }
+
+    @Test
+    void noWriteOnThisServiceIsUnguarded() {
+        List<Endpoint> openWrites = Contract.unguardedWrites(app());
+        assertThat(openWrites)
+                .as("unguarded: %s", openWrites.stream().map(Endpoint::toString).toList())
+                .isEmpty();
+    }
+
+    @Test
+    void everyRouteIsDocumented() {
+        assertThat(Contract.undocumented(app())).isEmpty();
+    }
+
+    @Test
+    void theHealthRouteIsDeliberatelyOpen() {
+        assertThat(Contract.UNGUARDED).containsKey("/health");
+    }
+
+    @Test
+    void anOpenRouteReadsBackAsOpen() {
+        assertThat(new Endpoint("/health", "GET", "health", "x", false, List.of()))
+                .hasToString("GET /health (open)");
+    }
+
+    @Test
+    void aGuardedRouteReadsBackAsGuarded() {
+        assertThat(new Endpoint("/x", "POST", "x", "x", true, List.of()).toString())
+                .contains("(guarded)");
+    }
+
+    @Test
+    void aRouteWithNoSummaryIsUndocumented() {
+        assertThat(new Endpoint("/x", "GET", "x", "   ", true, List.of()).isDocumented())
+                .isFalse();
+    }
+
+    @Test
+    void aWriteOnTheOpenListNeedsNoGuard() {
+        assertThat(new Endpoint("/health", "POST", "x", "x", false, List.of()).needsAGuard())
+                .isFalse();
+    }
+
+    @Test
+    void aWriteOffTheListNeedsAGuard() {
+        assertThat(new Endpoint("/deferrals", "POST", "x", "x", false, List.of()).needsAGuard())
+                .isTrue();
+    }
+
+    @Test
+    void theContractIsJsonThatParses() throws Exception {
+        assertThat(new ObjectMapper()
+                        .readTree(Contract.asDocument(app()))
+                        .get("info")
+                        .get("title")
+                        .asText())
+                .isEqualTo("doublerbay");
+    }
+
+    @Test
+    void theContractIsStableBetweenTwoBuilds() {
+        assertThat(Contract.asDocument(app())).isEqualTo(Contract.asDocument(app()));
+    }
+}
