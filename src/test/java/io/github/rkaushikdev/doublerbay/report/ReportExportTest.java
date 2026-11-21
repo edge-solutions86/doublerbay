@@ -18,14 +18,22 @@ import io.github.rkaushikdev.doublerbay.measure.Angle;
 import io.github.rkaushikdev.doublerbay.measure.Interval;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import io.github.rkaushikdev.doublerbay.store.UnitOfWork;
+import io.github.rkaushikdev.doublerbay.support.Cli;
+import io.github.rkaushikdev.doublerbay.support.Cli.Ran;
 import io.github.rkaushikdev.doublerbay.support.Desk;
 import io.github.rkaushikdev.doublerbay.support.Sample;
 import io.github.rkaushikdev.doublerbay.tolerance.InspectionMethod;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ReportExportTest {
 
@@ -232,5 +240,64 @@ class ReportExportTest {
     void growthSaysWhetherItIsATrend() {
         List<String> line = readBack(Export.growthAsCsv(List.of(growth()))).get(1);
         assertThat(line.get(line.size() - 1)).isEqualTo("no");
+    }
+
+    private static String text(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException unreadable) {
+            throw new UncheckedIOException(unreadable);
+        }
+    }
+
+    @Test
+    void theDueCommandWritesAFile(@TempDir Path tmp) {
+        Database database = stocked();
+        defer(database);
+        Path path = tmp.resolve("due.csv");
+        Ran answer = Cli.invoke(database, "report", "due", "--on", "2025-03-14", "--csv", path.toString());
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("wrote 1 rows");
+        assertThat(readBack(text(path)).get(0)).isEqualTo(Export.DUE_HEADER);
+    }
+
+    @Test
+    void theDueCommandStillPrintsWhenNoFileIsAskedFor() {
+        Database database = stocked();
+        defer(database);
+        Ran answer = Cli.invoke(database, "report", "due", "--on", "2025-03-14");
+        assertThat(answer.output()).contains("DR-2025-000001");
+    }
+
+    @Test
+    void thePackCommandWritesAFile(@TempDir Path tmp) {
+        Database database = stocked();
+        defer(database);
+        Path path = tmp.resolve("pack.csv");
+        Ran answer = Cli.invoke(
+                database,
+                "check",
+                "pack",
+                "--tail",
+                "5127",
+                "--opens",
+                "2025-04-01",
+                "--closes",
+                "2025-04-08",
+                "--within",
+                "400",
+                "--csv",
+                path.toString());
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("wrote 1 rows");
+        assertThat(readBack(text(path)).get(1).get(0)).isEqualTo("deferral");
+    }
+
+    @Test
+    void thePackCommandStillPrintsWhenNoFileIsAskedFor() {
+        Database database = stocked();
+        Ran answer = Cli.invoke(
+                database, "check", "pack", "--tail", "5127", "--opens", "2025-04-01", "--closes", "2025-04-08");
+        assertThat(answer.output()).contains("nothing for this check");
     }
 }

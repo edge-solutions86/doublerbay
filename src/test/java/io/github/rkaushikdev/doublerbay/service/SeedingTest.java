@@ -12,6 +12,8 @@ import io.github.rkaushikdev.doublerbay.report.DueReport;
 import io.github.rkaushikdev.doublerbay.report.FleetDamage;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import io.github.rkaushikdev.doublerbay.store.UnitOfWork;
+import io.github.rkaushikdev.doublerbay.support.Cli;
+import io.github.rkaushikdev.doublerbay.support.Cli.Ran;
 import io.github.rkaushikdev.doublerbay.support.Databases;
 import io.github.rkaushikdev.doublerbay.tolerance.CorrosionEntry;
 import io.github.rkaushikdev.doublerbay.tolerance.CorrosionLevel;
@@ -165,5 +167,33 @@ class SeedingTest {
     @Test
     void theSeedResultCanBeBuiltDirectly() {
         assertThat(new Seeded(1, 2, 3)).hasToString("1 aircraft, 2 damage cards, 3 deferrals");
+    }
+
+    @Test
+    void theCommandSeedsAnEmptyDatabase() {
+        Ran answer = Cli.invoke(database, "seed");
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("seeded 4 aircraft");
+    }
+
+    @Test
+    void theCommandTakesADay() {
+        Ran answer = Cli.invoke(database, "seed", "--on", "2025-06-01");
+        assertThat(answer.exitCode()).isZero();
+    }
+
+    @Test
+    void theCommandRefusesADatabaseThatAlreadyHoldsAFleet() {
+        Cli.invoke(database, "seed");
+        Ran answer = Cli.invoke(database, "seed");
+        assertThat(answer.exitCode()).isNotZero();
+    }
+
+    @Test
+    void theSeededFleetCanBeListedFromTheCommandLine() {
+        Cli.invoke(database, "seed");
+        String listed = Cli.invoke(database, "fleet", "list").output();
+        assertThat(listed).contains("N412VD");
+        assertThat(listed.strip().split("\n", -1)).hasSize(5);
     }
 }

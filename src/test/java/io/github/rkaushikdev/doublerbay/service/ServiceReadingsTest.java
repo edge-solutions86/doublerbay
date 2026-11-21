@@ -8,11 +8,15 @@ import io.github.rkaushikdev.doublerbay.fleet.Snapshot;
 import io.github.rkaushikdev.doublerbay.ids.Serial;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import io.github.rkaushikdev.doublerbay.store.UnitOfWork;
+import io.github.rkaushikdev.doublerbay.support.Cli;
+import io.github.rkaushikdev.doublerbay.support.Cli.Ran;
 import io.github.rkaushikdev.doublerbay.support.Desk;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ServiceReadingsTest {
 
@@ -193,5 +197,28 @@ class ServiceReadingsTest {
         Taken taken = posted(HEADER);
         assertThat(taken.read()).isZero();
         assertThat(taken.isClean()).isTrue();
+    }
+
+    @Test
+    void theCommandPostsAFile(@TempDir Path tmp) {
+        Path path = Cli.writtenText(tmp, "counters.csv", csvOf("5127,2025-06-01,14000,24500"));
+        Ran answer = Cli.invoke(database, "fleet", "import", path.toString());
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("1 readings posted");
+    }
+
+    @Test
+    void theCommandPrintsEveryRefusal(@TempDir Path tmp) {
+        Path path = Cli.writtenText(tmp, "counters.csv", csvOf("9999,2025-06-01,14000,24500"));
+        Ran answer = Cli.invoke(database, "fleet", "import", path.toString());
+        assertThat(answer.output()).contains("1 refused");
+        assertThat(answer.output()).contains("line 2, 9999");
+    }
+
+    @Test
+    void theCommandRefusesAFileWithTheWrongHeader(@TempDir Path tmp) {
+        Path path = Cli.writtenText(tmp, "counters.csv", "tail,day\n");
+        Ran answer = Cli.invoke(database, "fleet", "import", path.toString());
+        assertThat(answer.exitCode()).isNotZero();
     }
 }

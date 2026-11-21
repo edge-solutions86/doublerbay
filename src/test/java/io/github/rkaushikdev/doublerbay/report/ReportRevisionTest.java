@@ -11,6 +11,8 @@ import io.github.rkaushikdev.doublerbay.ids.Serial;
 import io.github.rkaushikdev.doublerbay.manual.Book;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import io.github.rkaushikdev.doublerbay.store.UnitOfWork;
+import io.github.rkaushikdev.doublerbay.support.Cli;
+import io.github.rkaushikdev.doublerbay.support.Cli.Ran;
 import io.github.rkaushikdev.doublerbay.support.Desk;
 import io.github.rkaushikdev.doublerbay.support.Sample;
 import java.time.LocalDate;
@@ -174,5 +176,31 @@ class ReportRevisionTest {
                         new Moved(new FindingId(2025, 2), other, Disposition.ALLOWABLE, Disposition.REPAIRABLE)),
                 List.of());
         assertThat(Revisions.worseOn(built, MSN)).hasSize(1);
+    }
+
+    @Test
+    void theCommandReportsAQuietSweep() {
+        Ran answer = Cli.invoke(database, "report", "revision", "--before", "2025-03-14", "--after", "2026-03-14");
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("nothing moved");
+    }
+
+    @Test
+    void theCommandCountsWhatItLookedAt() {
+        raised();
+        Ran answer = Cli.invoke(database, "report", "revision", "--before", "2025-03-14", "--after", "2026-03-14");
+        assertThat(answer.output()).contains("1 cards looked at");
+    }
+
+    @Test
+    void theCommandRefusesDaysInTheWrongOrder() {
+        Ran answer = Cli.invoke(database, "report", "revision", "--before", "2026-03-14", "--after", "2025-03-14");
+        assertThat(answer.exitCode()).isNotZero();
+    }
+
+    @Test
+    void theCommandRefusesADayThatIsNotOne() {
+        Ran answer = Cli.invoke(database, "report", "revision", "--before", "14/03/2025", "--after", "2026-03-14");
+        assertThat(answer.exitCode()).isNotZero();
     }
 }

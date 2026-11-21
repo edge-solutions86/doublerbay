@@ -5,10 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.rkaushikdev.doublerbay.support.Api;
+import io.github.rkaushikdev.doublerbay.support.Cli;
+import io.github.rkaushikdev.doublerbay.support.Cli.Ran;
 import io.github.rkaushikdev.doublerbay.support.Desk;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.ConfigurableApplicationContext;
 
 class ContractTest {
@@ -135,5 +141,49 @@ class ContractTest {
     @Test
     void theContractIsStableBetweenTwoBuilds() {
         assertThat(Contract.asDocument(app())).isEqualTo(Contract.asDocument(app()));
+    }
+
+    @Test
+    void theRoutesCommandListsThem() {
+        Ran answer = Cli.invoke("routes");
+        assertThat(answer.exitCode()).as(answer.output()).isZero();
+        assertThat(answer.output()).contains("/deferrals");
+        assertThat(answer.output()).contains("guarded");
+    }
+
+    @Test
+    void theRoutesCommandCanShowOnlyWrites() {
+        Ran answer = Cli.invoke("routes", "--writes-only");
+        assertThat(answer.output()).contains("POST");
+        assertThat(answer.output()).doesNotContain("GET ");
+    }
+
+    @Test
+    void theRoutesCommandReportsNoUnguardedWrites() {
+        Ran answer = Cli.invoke("routes");
+        assertThat(answer.output()).doesNotContain("nothing is guarding");
+        assertThat(answer.output()).doesNotContain("nothing guards");
+        assertThat(answer.exitCode()).isZero();
+    }
+
+    @Test
+    void theContractCommandPrintsTheDocument() throws Exception {
+        Ran answer = Cli.invoke("contract");
+        assertThat(new ObjectMapper().readTree(answer.output()).get("openapi").asText())
+                .startsWith("3.");
+    }
+
+    @Test
+    void theContractCommandWritesAFile(@TempDir Path tmp) throws Exception {
+        Path path = tmp.resolve("openapi.json");
+        Ran answer = Cli.invoke("contract", "--to", path.toString());
+        assertThat(answer.exitCode()).isZero();
+        assertThat(answer.output()).contains("wrote");
+        assertThat(new ObjectMapper()
+                        .readTree(Files.readString(path, StandardCharsets.UTF_8))
+                        .get("info")
+                        .get("title")
+                        .asText())
+                .isEqualTo("doublerbay");
     }
 }
