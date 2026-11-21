@@ -1,15 +1,37 @@
 package io.github.rkaushikdev.doublerbay.support;
 
+import io.github.rkaushikdev.doublerbay.damage.DamageKind;
+import io.github.rkaushikdev.doublerbay.damage.DamageOrigin;
+import io.github.rkaushikdev.doublerbay.damage.Dent;
+import io.github.rkaushikdev.doublerbay.damage.Finding;
+import io.github.rkaushikdev.doublerbay.damage.Geometry;
+import io.github.rkaushikdev.doublerbay.fleet.Aircraft;
+import io.github.rkaushikdev.doublerbay.fleet.DiscoverySource;
+import io.github.rkaushikdev.doublerbay.fleet.Fleet;
+import io.github.rkaushikdev.doublerbay.fleet.Series;
+import io.github.rkaushikdev.doublerbay.fleet.Snapshot;
+import io.github.rkaushikdev.doublerbay.fleet.TailContext;
+import io.github.rkaushikdev.doublerbay.fleet.TypeCatalogue;
+import io.github.rkaushikdev.doublerbay.fleet.UtilisationLog;
 import io.github.rkaushikdev.doublerbay.grid.Frame;
 import io.github.rkaushikdev.doublerbay.grid.FuselagePoint;
 import io.github.rkaushikdev.doublerbay.grid.Offset;
+import io.github.rkaushikdev.doublerbay.grid.Point;
+import io.github.rkaushikdev.doublerbay.grid.Rib;
 import io.github.rkaushikdev.doublerbay.grid.Side;
+import io.github.rkaushikdev.doublerbay.grid.Spar;
 import io.github.rkaushikdev.doublerbay.grid.Station;
 import io.github.rkaushikdev.doublerbay.grid.Stringer;
+import io.github.rkaushikdev.doublerbay.grid.Surface;
+import io.github.rkaushikdev.doublerbay.grid.WingPoint;
 import io.github.rkaushikdev.doublerbay.grid.Zone;
+import io.github.rkaushikdev.doublerbay.ids.FindingId;
 import io.github.rkaushikdev.doublerbay.ids.PanelId;
+import io.github.rkaushikdev.doublerbay.ids.Registration;
+import io.github.rkaushikdev.doublerbay.ids.Serial;
 import io.github.rkaushikdev.doublerbay.measure.FastenerSize;
 import io.github.rkaushikdev.doublerbay.measure.Length;
+import io.github.rkaushikdev.doublerbay.measure.Usage;
 import io.github.rkaushikdev.doublerbay.structure.Airframe;
 import io.github.rkaushikdev.doublerbay.structure.Cutout;
 import io.github.rkaushikdev.doublerbay.structure.CutoutKind;
@@ -30,6 +52,7 @@ import io.github.rkaushikdev.doublerbay.structure.ThicknessMap;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A small stand in for the real V320 structure, for tests that need one.
@@ -38,6 +61,39 @@ import java.util.List;
  * and three panels on the left hand side with a lap joint, a window and somebody's old doubler
  * between them. Small enough to work out the right answer by hand and complete enough that every
  * lookup has something to find.
+ *
+ * <p>The second half is the real V320 definition, a tail on it, and cards raised against that tail,
+ * for tests that need the real numbers: MSN 5127 wearing N412VD, a V320-200 delivered on the twelfth
+ * of April 2016, with two readings a year apart (12000 cycles and 21000 hours at the start of 2024,
+ * 13800 and 24200 at the start of 2025), and a register holding it.
+ *
+ * <h2>Raising a card</h2>
+ *
+ * <p>{@link #card()} raises DR-2025-000001 against MSN 5127: a dent 0.020 deep, 3.000 by 2.000, at
+ * {@link #cabinPoint()}, found on {@link #DAY} at a scheduled check, from an impact, at 13900 FC and
+ * 24400 FH. The common shapes are overloads:
+ *
+ * <pre>{@code
+ * Sample.card()                                   // the default card
+ * Sample.card(2)                                  // DR-2025-000002
+ * Sample.card(Sample.lowerWingPoint())            // somewhere else
+ * Sample.card(2, Sample.cabinPointOn(10))         // a number and a place
+ * Sample.card(2, "5240")                          // a number on another tail
+ * Sample.card(1, DamageKind.CRACK, crack)         // another kind, with its measurements
+ * Sample.card(1, DamageKind.CRACK, crack, DamageOrigin.FATIGUE)
+ * }</pre>
+ *
+ * <p>Anything else goes through {@link #cardWith()}, which starts from the default card and changes
+ * only what it is told to, one method per thing the card carries:
+ *
+ * <pre>{@code
+ * Sample.cardWith().sequence(3).serial("5240").found(day).source(DiscoverySource.WALKAROUND).build()
+ * Sample.cardWith().kind(DamageKind.CORROSION).geometry(rot).origin(DamageOrigin.ENVIRONMENT).build()
+ * }</pre>
+ *
+ * <p>The kind, its measurements and its cause are checked together when the card is built, exactly
+ * as a finding checks them, so a kind other than a dent needs measurements of that kind and, where an
+ * impact cannot have caused it, a cause that could.
  */
 public final class Sample {
 
@@ -52,6 +108,12 @@ public final class Sample {
 
     /** The stringer the lap joint runs along. */
     public static final Stringer LAP_STRINGER = new Stringer(4, Side.LEFT);
+
+    /** The serial every test tail carries unless it says otherwise. */
+    public static final Serial MSN = new Serial("5127");
+
+    /** The day the desk answers as of, and the day a card is found unless it says otherwise. */
+    public static final LocalDate DAY = LocalDate.of(2025, 3, 14);
 
     private Sample() {}
 
@@ -180,5 +242,256 @@ public final class Sample {
     /** A panel that claims bays the forward upper panel already claims. */
     public static PanelBuild overlapping() {
         return new PanelBuild(panel(199, 41, 43, 2, 3), milled());
+    }
+
+    // The real V320 definition, a tail on it, and cards raised against that tail. Everything above
+    // this line is the small hand checkable structure. Everything below it is the transcribed one, for
+    // tests that need the real numbers.
+
+    /** A reading of both counters, the hours whole. */
+    public static Usage flown(int cycles, long hours) {
+        return UtilisationLog.usage(cycles, hours);
+    }
+
+    /** A reading of both counters, the hours as decimal text. */
+    public static Usage flown(int cycles, String hours) {
+        return UtilisationLog.usage(cycles, hours);
+    }
+
+    /** MSN 5127, a V320-200. */
+    public static Aircraft aircraft() {
+        return aircraft("5127");
+    }
+
+    /** The test tail under another serial. */
+    public static Aircraft aircraft(String serial) {
+        return aircraft(serial, Series.STANDARD);
+    }
+
+    /** The test tail under another serial and series. */
+    public static Aircraft aircraft(String serial, Series series) {
+        return new Aircraft(new Serial(serial), new Registration("N412VD"), series, 1140, LocalDate.of(2016, 4, 12));
+    }
+
+    /** The two readings on MSN 5127. */
+    public static UtilisationLog flyingLog() {
+        return flyingLog("5127");
+    }
+
+    /** The same two readings, posted against another serial. */
+    public static UtilisationLog flyingLog(String serial) {
+        return new UtilisationLog(
+                new Serial(serial),
+                List.of(
+                        new Snapshot(LocalDate.of(2024, 1, 1), flown(12000, 21000)),
+                        new Snapshot(LocalDate.of(2025, 1, 1), flown(13800, 24200))));
+    }
+
+    /** A register holding MSN 5127 and its log. */
+    public static Fleet register() {
+        return register("5127");
+    }
+
+    /** A register holding the test tail under another serial. */
+    public static Fleet register(String serial) {
+        return register(serial, Series.STANDARD);
+    }
+
+    /** A register holding the test tail under another serial and series. */
+    public static Fleet register(String serial, Series series) {
+        Fleet held = new Fleet();
+        held.enrol(aircraft(serial, series), flyingLog(serial));
+        return held;
+    }
+
+    /** MSN 5127 on {@link #DAY}, resolved onto the real structure. */
+    public static TailContext tailContext() {
+        return tailContext("5127", DAY);
+    }
+
+    /** The test tail under another serial, on {@link #DAY}. */
+    public static TailContext tailContext(String serial) {
+        return tailContext(serial, DAY);
+    }
+
+    /** MSN 5127 on another day. */
+    public static TailContext tailContext(LocalDate day) {
+        return tailContext("5127", day);
+    }
+
+    /** The test tail under another serial, on another day. */
+    public static TailContext tailContext(String serial, LocalDate day) {
+        return TypeCatalogue.contextFor(register(serial), new TypeCatalogue(), new Serial(serial), day);
+    }
+
+    /** A point in the passenger cabin, on ordinary pressurised skin: FR15 10.000 aft, S-6L on the line. */
+    public static FuselagePoint cabinPoint() {
+        return cabinPoint(15, "10.000", 6, "0.000");
+    }
+
+    /** A point on the left hand of the real barrel, written off a frame and a stringer. */
+    public static FuselagePoint cabinPoint(int frame, String aft, int stringer, String down) {
+        return new FuselagePoint(new Frame(frame), inch(aft), new Stringer(stringer, Side.LEFT), inch(down));
+    }
+
+    /** The cabin point moved onto another stringer: FR15 10.000 aft, on the line of S-nL. */
+    public static FuselagePoint cabinPointOn(int stringer) {
+        return cabinPoint(15, "10.000", stringer, "0.000");
+    }
+
+    /** The cabin point moved onto another stringer and down from it: FR15 10.000 aft. */
+    public static FuselagePoint cabinPointOn(int stringer, String down) {
+        return cabinPoint(15, "10.000", stringer, down);
+    }
+
+    /** The cabin point moved to another frame: 10.000 aft of it, on the line of S-6L. */
+    public static FuselagePoint cabinPointAtFrame(int frame) {
+        return cabinPoint(frame, "10.000", 6, "0.000");
+    }
+
+    /** The cabin point moved to another frame and stringer: 10.000 aft, on the stringer line. */
+    public static FuselagePoint cabinPointAtFrame(int frame, int stringer) {
+        return cabinPoint(frame, "10.000", stringer, "0.000");
+    }
+
+    /** A point on the lower skin of the left wing: rib 2, 6.000 outboard, 20.000 aft of the front spar. */
+    public static WingPoint lowerWingPoint() {
+        return lowerWingPoint(2, "6.000", "20.000");
+    }
+
+    /** The lower wing point moved to another rib. */
+    public static WingPoint lowerWingPoint(int rib) {
+        return lowerWingPoint(rib, "6.000", "20.000");
+    }
+
+    /** A point on the lower skin of the left wing, written off a rib and the front spar. */
+    public static WingPoint lowerWingPoint(int rib, String outboard, String aft) {
+        return new WingPoint(new Rib(rib, Side.LEFT), inch(outboard), Spar.FRONT, inch(aft), Surface.LOWER);
+    }
+
+    /** The default card: DR-2025-000001, a dent on MSN 5127. */
+    public static Finding card() {
+        return cardWith().build();
+    }
+
+    /** The default card under another report sequence. */
+    public static Finding card(int sequence) {
+        return cardWith().sequence(sequence).build();
+    }
+
+    /** The default card somewhere else. */
+    public static Finding card(Point at) {
+        return cardWith().at(at).build();
+    }
+
+    /** The default card under another report sequence, somewhere else. */
+    public static Finding card(int sequence, Point at) {
+        return cardWith().sequence(sequence).at(at).build();
+    }
+
+    /** The default card under another report sequence, on another tail. */
+    public static Finding card(int sequence, String serial) {
+        return cardWith().sequence(sequence).serial(serial).build();
+    }
+
+    /** A card of another kind, with the measurements that kind is reported with. */
+    public static Finding card(int sequence, DamageKind kind, Geometry geometry) {
+        return cardWith().sequence(sequence).kind(kind).geometry(geometry).build();
+    }
+
+    /** A card of another kind, with its measurements and its cause. */
+    public static Finding card(int sequence, DamageKind kind, Geometry geometry, DamageOrigin origin) {
+        return cardWith()
+                .sequence(sequence)
+                .kind(kind)
+                .geometry(geometry)
+                .origin(origin)
+                .build();
+    }
+
+    /** The default card, ready to have anything on it changed before it is built. */
+    public static Card cardWith() {
+        return new Card();
+    }
+
+    /**
+     * A card being filled in, starting from the default card. Each method changes one thing the card
+     * carries and hands the same card back; {@link #build()} raises it.
+     */
+    public static final class Card {
+
+        private int sequence = 1;
+        private DamageKind kind = DamageKind.DENT;
+        private Geometry geometry;
+        private Point at;
+        private String serial = "5127";
+        private LocalDate found = DAY;
+        private DamageOrigin origin = DamageOrigin.IMPACT;
+        private DiscoverySource source = DiscoverySource.SCHEDULED_CHECK;
+
+        private Card() {}
+
+        /** The report sequence in 2025. */
+        public Card sequence(int value) {
+            this.sequence = value;
+            return this;
+        }
+
+        /** The kind of damage. */
+        public Card kind(DamageKind value) {
+            this.kind = Objects.requireNonNull(value, "kind");
+            return this;
+        }
+
+        /** The measurements; a null keeps the default dent. */
+        public Card geometry(Geometry value) {
+            this.geometry = value;
+            return this;
+        }
+
+        /** Where it is; a null keeps {@link Sample#cabinPoint()}. */
+        public Card at(Point value) {
+            this.at = value;
+            return this;
+        }
+
+        /** The serial of the tail it is raised against. */
+        public Card serial(String value) {
+            this.serial = Objects.requireNonNull(value, "serial");
+            return this;
+        }
+
+        /** The day it was found. */
+        public Card found(LocalDate value) {
+            this.found = Objects.requireNonNull(value, "found");
+            return this;
+        }
+
+        /** What caused it. */
+        public Card origin(DamageOrigin value) {
+            this.origin = Objects.requireNonNull(value, "origin");
+            return this;
+        }
+
+        /** Who or what brought it to the desk. */
+        public Card source(DiscoverySource value) {
+            this.source = Objects.requireNonNull(value, "source");
+            return this;
+        }
+
+        /** The card, raised at revision one with the counters at 13900 FC and 24400 FH. */
+        public Finding build() {
+            Geometry measured = geometry != null ? geometry : new Dent(inch("0.020"), inch("3.000"), inch("2.000"));
+            return new Finding(
+                    new FindingId(2025, sequence),
+                    new Serial(serial),
+                    kind,
+                    measured,
+                    at != null ? at : cabinPoint(),
+                    found,
+                    source,
+                    origin,
+                    flown(13900, 24400));
+        }
     }
 }

@@ -13,7 +13,7 @@ import io.github.rkaushikdev.doublerbay.measure.DueAt;
 import io.github.rkaushikdev.doublerbay.measure.Hours;
 import io.github.rkaushikdev.doublerbay.measure.Interval;
 import io.github.rkaushikdev.doublerbay.measure.Usage;
-import io.github.rkaushikdev.doublerbay.support.Tails;
+import io.github.rkaushikdev.doublerbay.support.Sample;
 import io.github.rkaushikdev.doublerbay.tolerance.InspectionMethod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,7 +24,7 @@ class ReportDueTest {
 
     private static final LocalDate DAY = LocalDate.of(2025, 3, 14);
     private static final Serial MSN = new Serial("5127");
-    private static final Usage FLOWN = Tails.flown(13800, 24200);
+    private static final Usage FLOWN = Sample.flown(13800, 24200);
 
     private static Forecast rate() {
         return rate("4", "7");
@@ -35,7 +35,7 @@ class ReportDueTest {
     }
 
     private static Forecast rate(String cycles, String hours) {
-        return new Forecast(Tails.flyingLog(), new BigDecimal(cycles), new BigDecimal(hours));
+        return new Forecast(Sample.flyingLog(), new BigDecimal(cycles), new BigDecimal(hours));
     }
 
     private static DueAt cyclesDue(int count) {
@@ -59,7 +59,7 @@ class ReportDueTest {
         return Deferral.grant(
                 new FindingId(2025, 44),
                 LocalDate.of(2024, 1, 1),
-                Tails.flown(100, 200),
+                Sample.flown(100, 200),
                 "j.mercer",
                 InspectionMethod.DVI,
                 Interval.parse("50 FC"),
