@@ -12,7 +12,7 @@ import java.util.List;
 final class Routers {
 
     /** The routers, in the order they are registered. */
-    static final List<Class<?>> ALL = List.of(FleetRoutes.class, ServiceRoutes.class);
+    static final List<Class<?>> ALL = List.of(FindingRoutes.class, FleetRoutes.class, ServiceRoutes.class);
 
     private Routers() {}
 }
