@@ -16,7 +16,7 @@ import java.util.Map;
  * digits; a fraction to the fewest digits that read back as the same value, with an exponent from
  * sixteen digits up or below a ten thousandth ({@code 1.5}, {@code 100.0}, {@code 1e+16},
  * {@code 1.5e-05}, {@code inf}, {@code nan}); true and false as {@code True} and {@code False}; null
- * as {@code None}; text quoted as a refusal quotes it; a list in square brackets and an object in
+ * as {@code null}; text quoted as a refusal quotes it; a list in square brackets and an object in
  * braces, the items separated by a comma and a space and each member written {@code 'name': value}.
  */
 final class Printed {
@@ -34,7 +34,7 @@ final class Printed {
             return Literal.of(value.textValue());
         }
         if (value.isNull()) {
-            return "None";
+            return "null";
         }
         if (value.isBoolean()) {
             return value.booleanValue() ? "True" : "False";
@@ -76,7 +76,7 @@ final class Printed {
         if (value.isNumber()) {
             return "float";
         }
-        return "NoneType";
+        return "null";
     }
 
     /** A fraction to the fewest digits that read back as the same value. */

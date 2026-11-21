@@ -31,7 +31,7 @@ class PrintedTest {
                 "123456789012345678901234567890|123456789012345678901234567890",
                 "true|True",
                 "false|False",
-                "null|None",
+                "null|null",
                 "1.5|1.5",
                 "100.0|100.0",
                 "1e2|100.0",
@@ -42,7 +42,7 @@ class PrintedTest {
                 "-2.5e-7|-2.5e-07",
                 "-0.0|-0.0",
                 "1e400|inf",
-                "'[\"a\", 1, [true, null]]'|'[''a'', 1, [True, None]]'",
+                "'[\"a\", 1, [true, null]]'|'[''a'', 1, [True, null]]'",
                 "'{\"a\": 1, \"b\": \"it''s\"}'|'{''a'': 1, ''b'': \"it''s\"}'",
                 "'[]'|'[]'",
                 "'{}'|'{}'",
@@ -61,7 +61,7 @@ class PrintedTest {
                 "true|bool",
                 "7|int",
                 "7.5|float",
-                "null|NoneType",
+                "null|null",
             })
     void anEntryNamesTheKindOfValueItIs(String json, String expected) throws Exception {
         assertThat(Printed.kind(read(json))).isEqualTo(expected);
