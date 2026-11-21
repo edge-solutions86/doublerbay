@@ -196,4 +196,11 @@ class PagingTest {
         assertThat(body.get("total").asInt()).isZero();
         assertThat(body.get("rows")).hasToString("[]");
     }
+
+    @Test
+    void theOrderListPages() {
+        Built built = built();
+        JsonNode body = built.api().get("/orders", Map.of("limit", 2)).json();
+        assertThat(body.get("limit").asInt()).isEqualTo(2);
+    }
 }

@@ -83,6 +83,11 @@ public final class Client {
         return send(request, extra);
     }
 
+    /** A post that sends no body at all. */
+    public Answer post(String path) {
+        return send(MockMvcRequestBuilders.request(HttpMethod.POST, path), Map.of());
+    }
+
     /** A post with a JSON body. */
     public Answer post(String path, Object body) {
         return post(path, body, Map.of());
