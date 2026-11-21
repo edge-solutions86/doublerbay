@@ -32,7 +32,7 @@ import java.util.Set;
  * table to answer each one, which is the only way to find the pairs of rows that tie. That is a few
  * hundred lookups and it costs nothing next to getting one of them wrong on an aeroplane.
  */
-public final class Audits {
+public final class ManualAudits {
 
     /**
      * The thicknesses a fractional limit is checked against. Thin enough and thick enough to catch a
@@ -45,7 +45,7 @@ public final class Audits {
             Length.ofInches("0.125"),
             Length.ofInches("0.250"));
 
-    private Audits() {}
+    private ManualAudits() {}
 
     /** Ask the table every question it could be asked and report what it cannot answer. */
     private static List<Complaint> sweep(LimitTable table) {

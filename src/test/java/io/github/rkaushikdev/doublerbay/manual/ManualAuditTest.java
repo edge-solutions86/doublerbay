@@ -71,7 +71,7 @@ class ManualAuditTest {
         for (DamageKind kind : Arrays.copyOf(DamageKind.values(), 3)) {
             rows.add(row(kind, LimitSet.allowable().withMaxDepth(inch("0.010"))));
         }
-        List<Complaint> found = Audits.auditTable(table(rows));
+        List<Complaint> found = ManualAudits.auditTable(table(rows));
         List<Complaint> missing = saying(found, "no row anywhere");
         assertThat(missing).hasSize(DamageKind.values().length - 3);
         assertThat(missing).allMatch(one -> one.severity() == Severity.BLOCKING);
@@ -79,7 +79,7 @@ class ManualAuditTest {
 
     @Test
     void aRowThatAllowsDamageAndCapsNothingIsBlocking() {
-        List<Complaint> found = Audits.auditTable(table(everyKind(LimitSet.allowable())));
+        List<Complaint> found = ManualAudits.auditTable(table(everyKind(LimitSet.allowable())));
         List<Complaint> openRows = saying(found, "caps nothing");
         assertThat(openRows).isNotEmpty();
         assertThat(openRows).allMatch(one -> one.severity() == Severity.BLOCKING);
@@ -90,7 +90,7 @@ class ManualAuditTest {
         LimitTable crossed = table(everyKind(LimitSet.allowable()
                 .withMaxDepthFraction(new Ratio("0.20"))
                 .withMinResidualFraction(new Ratio("0.90"))));
-        List<Complaint> found = Audits.auditTable(crossed);
+        List<Complaint> found = ManualAudits.auditTable(crossed);
         List<Complaint> contradictions = saying(found, "and asks for");
         assertThat(contradictions).isNotEmpty();
         assertThat(contradictions).allMatch(one -> one.severity() == Severity.BLOCKING);
@@ -101,7 +101,7 @@ class ManualAuditTest {
         LimitTable agreeing = table(everyKind(LimitSet.allowable()
                 .withMaxDepthFraction(new Ratio("0.05"))
                 .withMinResidualFraction(new Ratio("0.90"))));
-        List<Complaint> found = Audits.auditTable(agreeing);
+        List<Complaint> found = ManualAudits.auditTable(agreeing);
         assertThat(saying(found, "and asks for")).isEmpty();
     }
 
@@ -109,7 +109,7 @@ class ManualAuditTest {
     void twoRowsThatAnswerEquallyShowUpInTheSweep() {
         List<LimitRow> rows = new ArrayList<>(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010"))));
         rows.add(row(DamageKind.DENT, LimitSet.allowable().withMaxDepth(inch("0.005"))));
-        List<Complaint> found = Audits.auditTable(table(rows));
+        List<Complaint> found = ManualAudits.auditTable(table(rows));
         List<Complaint> clashes = saying(found, "rows that answer");
         assertThat(clashes).isNotEmpty();
         assertThat(clashes).allMatch(one -> one.severity() == Severity.BLOCKING);
@@ -118,7 +118,7 @@ class ManualAuditTest {
     @Test
     void aRowCitingAPageThatIsNotInTheBookIsAdvisory() {
         List<Complaint> found =
-                Audits.auditTable(table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), List.of());
+                ManualAudits.auditTable(table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), List.of());
         List<Complaint> orphans = saying(found, "not in the book");
         assertThat(orphans).hasSize(1);
         assertThat(orphans.get(0).severity()).isSameAs(Severity.ADVISORY);
@@ -127,37 +127,37 @@ class ManualAuditTest {
     @Test
     void aRowCitingALivePageRaisesNothing() {
         List<Complaint> found =
-                Audits.auditTable(table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), Manual53.PAGES);
+                ManualAudits.auditTable(table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), Manual53.PAGES);
         assertThat(saying(found, "not in the book")).isEmpty();
     }
 
     @Test
     void theTranscribedFuselageChapterHasNothingBlockingInIt() {
-        List<Complaint> found = Audits.auditTable(Manual53.allowableDamage(12), Manual53.PAGES);
+        List<Complaint> found = ManualAudits.auditTable(Manual53.allowableDamage(12), Manual53.PAGES);
         assertThat(Complaint.isClear(found)).isTrue();
     }
 
     @Test
     void theTranscribedWingChapterHasNothingBlockingInIt() {
-        List<Complaint> found = Audits.auditTable(Manual57.allowableDamage(10), Manual57.PAGES);
+        List<Complaint> found = ManualAudits.auditTable(Manual57.allowableDamage(10), Manual57.PAGES);
         assertThat(Complaint.isClear(found)).isTrue();
     }
 
     @Test
     void theWholeBookWalksClean() {
-        assertThat(Complaint.isClear(Audits.auditBook(Book.v320()))).isTrue();
+        assertThat(Complaint.isClear(ManualAudits.auditBook(Book.v320()))).isTrue();
     }
 
     @Test
     void theBookCanBeWalkedAtAnEarlierRevision() {
-        List<Complaint> found = Audits.auditBook(Book.v320(), Map.of("53", 11, "57", 9));
+        List<Complaint> found = ManualAudits.auditBook(Book.v320(), Map.of("53", 11, "57", 9));
         assertThat(Complaint.isClear(found)).isTrue();
     }
 
     @Test
     void theSweepReportsTheCombinationsNoRowAnswersFor() {
         LimitTable thin = table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010"))));
-        List<Complaint> found = Audits.auditTable(thin);
+        List<Complaint> found = ManualAudits.auditTable(thin);
         assertThat(saying(found, "no row answers for")).isEmpty();
     }
 }
