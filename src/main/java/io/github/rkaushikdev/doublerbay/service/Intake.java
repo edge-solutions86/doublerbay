@@ -111,10 +111,10 @@ public record Intake(FindingId reference, Optional<CorrosionEntry> graded) {
                 new CorrosionContext(
                         placement.part(),
                         withinLimits(book, tail, finding),
-                        Registers.corrosionFoundHereBefore(unit, finding.serial(), placement.part(), finding.foundOn()),
+                        unit.corrosion().hasFormHere(finding.serial(), placement.part(), finding.foundOn()),
                         urgent),
                 finding.foundOn());
-        Registers.recordCorrosion(unit, entry, finding.serial(), finding.reference());
+        unit.corrosion().record(entry, finding.serial(), finding.reference());
         return new Intake(finding.reference(), Optional.of(entry));
     }
 

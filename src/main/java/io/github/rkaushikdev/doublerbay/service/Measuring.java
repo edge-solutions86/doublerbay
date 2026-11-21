@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.doublerbay.service;
 
 import io.github.rkaushikdev.doublerbay.BadReading;
+import io.github.rkaushikdev.doublerbay.DoublerbayError;
 import io.github.rkaushikdev.doublerbay.assess.Assessor;
 import io.github.rkaushikdev.doublerbay.assess.Disposition;
 import io.github.rkaushikdev.doublerbay.damage.Finding;
@@ -67,7 +68,16 @@ public final class Measuring {
         unit.findings().recordRevision(updated);
         Disposition after = disposition(unit, book, catalogue, updated, on);
         unit.flush();
-        return new ReMeasured(updated, before, after, Registers.isDeferred(unit, reference));
+        return new ReMeasured(updated, before, after, isDeferred(unit, reference));
+    }
+
+    private static boolean isDeferred(UnitOfWork unit, FindingId reference) {
+        try {
+            unit.deferrals().get(reference);
+            return true;
+        } catch (DoublerbayError notDeferred) {
+            return false;
+        }
     }
 
     /** Every revision of one card, oldest first. */
