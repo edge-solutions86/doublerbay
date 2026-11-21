@@ -6,9 +6,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import io.github.rkaushikdev.doublerbay.support.Api;
+import io.github.rkaushikdev.doublerbay.support.Cli;
 import io.github.rkaushikdev.doublerbay.support.Client;
 import io.github.rkaushikdev.doublerbay.support.Desk;
 import io.github.rkaushikdev.doublerbay.support.Sample;
+import io.github.rkaushikdev.doublerbay.util.Text;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -145,5 +147,41 @@ class HistoryRoutesTest {
         Client.Answer answer =
                 built.api().get("/history/" + raised(built.database()), Map.of(), Desk.headersFor("reader"));
         assertThat(answer.status()).isEqualTo(200);
+    }
+
+    @Test
+    void theCommandPrintsTheStory() {
+        Built built = built();
+        String reference = raised(built.database());
+        String printed =
+                Cli.invoke(built.database(), "cards", "story", reference).output();
+        assertThat(printed).contains("entries over");
+        assertThat(printed).contains("card");
+    }
+
+    @Test
+    void theCommandPrintsOneLinePerEntry() {
+        Built built = built();
+        String reference = raised(built.database());
+        String printed =
+                Cli.invoke(built.database(), "cards", "story", reference).output();
+        assertThat(Text.lines(Text.strip(printed))).hasSize(4);
+    }
+
+    @Test
+    void theCommandRefusesACardThatIsNotThere() {
+        Built built = built();
+        assertThat(Cli.invoke(built.database(), "cards", "story", "DR-2025-000099")
+                        .exitCode())
+                .isNotZero();
+    }
+
+    @Test
+    void theCommandShowsTheDeferralLine() {
+        Built built = built();
+        String reference = raised(built.database());
+        defer(built.api(), reference);
+        assertThat(Cli.invoke(built.database(), "cards", "story", reference).output())
+                .contains("deferral");
     }
 }
