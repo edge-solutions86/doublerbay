@@ -17,7 +17,9 @@ final class Routers {
             AssessmentRoutes.class,
             FleetRoutes.class,
             DecisionRoutes.class,
+            CorrosionRoutes.class,
             InspectionRoutes.class,
+            GrowthRoutes.class,
             ServiceRoutes.class);
 
     private Routers() {}
