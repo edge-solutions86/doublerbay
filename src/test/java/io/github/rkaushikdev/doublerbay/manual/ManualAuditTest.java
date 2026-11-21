@@ -126,8 +126,8 @@ class ManualAuditTest {
 
     @Test
     void aRowCitingALivePageRaisesNothing() {
-        List<Complaint> found =
-                ManualAudits.auditTable(table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), Manual53.PAGES);
+        List<Complaint> found = ManualAudits.auditTable(
+                table(everyKind(LimitSet.allowable().withMaxDepth(inch("0.010")))), Manual53.PAGES);
         assertThat(saying(found, "not in the book")).isEmpty();
     }
 
