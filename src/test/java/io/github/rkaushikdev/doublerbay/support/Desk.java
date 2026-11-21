@@ -33,6 +33,25 @@ public final class Desk {
 
     private Desk() {}
 
+    /** The headers a client acting as one role sends: that role's key under {@link #KEY_HEADER}. */
+    public static Map<String, String> headersFor(String role) {
+        String key = KEYS.get(role);
+        if (key == null) {
+            throw new IllegalArgumentException(role + " is not a role with a key");
+        }
+        return Map.of(KEY_HEADER, key);
+    }
+
+    /** The day a request is answered as of when the suite pins it, which is {@link #TODAY}. */
+    public static LocalDate answeredOn() {
+        return answeredOn(TODAY);
+    }
+
+    /** The day a request is answered as of: the pinned day, or the real today when none is pinned. */
+    public static LocalDate answeredOn(LocalDate pinned) {
+        return pinned != null ? pinned : LocalDate.now();
+    }
+
     /** An empty database with the schema on it, thrown away after the test. */
     public static Database newDatabase() {
         return Databases.fresh();
