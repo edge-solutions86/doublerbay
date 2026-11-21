@@ -2,6 +2,7 @@ package io.github.rkaushikdev.doublerbay.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.rkaushikdev.doublerbay.support.Api;
 import io.github.rkaushikdev.doublerbay.support.Desk;
@@ -14,6 +15,11 @@ class ContractTest {
 
     private static ConfigurableApplicationContext app() {
         return Api.clientFor(Desk.newDatabase()).app();
+    }
+
+    @Test
+    void theSurfaceListsItsRoutes() {
+        assertThat(Contract.endpoints(app())).hasSizeGreaterThan(40);
     }
 
     @Test
@@ -46,6 +52,11 @@ class ContractTest {
     @Test
     void theWritingMethodsAreTheOnesThatChangeSomething() {
         assertThat(Contract.WRITING).isEqualTo(Set.of("POST", "PUT", "PATCH", "DELETE"));
+    }
+
+    @Test
+    void theSurfaceHasWritesOnIt() {
+        assertThat(Contract.writes(app())).hasSizeGreaterThan(10);
     }
 
     @Test
@@ -97,6 +108,14 @@ class ContractTest {
     }
 
     @Test
+    void theSurfaceGroupsItsRoutesUnderTags() {
+        List<String> every = Contract.tags(app());
+        assertThat(every).contains("findings");
+        assertThat(every).contains("reports");
+        assertThat(every).hasSizeGreaterThan(8);
+    }
+
+    @Test
     void theContractIsJsonThatParses() throws Exception {
         assertThat(new ObjectMapper()
                         .readTree(Contract.asDocument(app()))
@@ -104,6 +123,13 @@ class ContractTest {
                         .get("title")
                         .asText())
                 .isEqualTo("doublerbay");
+    }
+
+    @Test
+    void theContractCarriesEveryPath() throws Exception {
+        JsonNode document = new ObjectMapper().readTree(Contract.asDocument(app()));
+        assertThat(document.get("paths").has("/deferrals")).isTrue();
+        assertThat(document.get("paths").has("/reports/due")).isTrue();
     }
 
     @Test
