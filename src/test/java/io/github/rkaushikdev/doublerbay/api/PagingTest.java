@@ -203,4 +203,13 @@ class PagingTest {
         JsonNode body = built.api().get("/orders", Map.of("limit", 2)).json();
         assertThat(body.get("limit").asInt()).isEqualTo(2);
     }
+
+    @Test
+    void theRepairListPages() {
+        Built built = built();
+        JsonNode body =
+                built.api().get("/repairs/aircraft/5127", Map.of("limit", 2)).json();
+        assertThat(body.get("total").asInt()).isZero();
+        assertThat(body.get("offset").asInt()).isZero();
+    }
 }
