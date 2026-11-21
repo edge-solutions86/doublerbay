@@ -55,6 +55,9 @@ import picocli.CommandLine.ParseResult;
         customSynopsis = "doublerbay [OPTIONS] COMMAND [ARGS]...",
         description = "Skin damage disposition for the structures desk.",
         subcommands = {
+            Assessing.AssessCard.class,
+            Assessing.AssessTail.class,
+            Cards.Group.class,
             Main.Fleet.class,
             Main.Init.class,
             Main.Seed.class,

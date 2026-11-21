@@ -1,12 +1,19 @@
 package io.github.rkaushikdev.doublerbay.support;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.rkaushikdev.doublerbay.cli.Main;
 import io.github.rkaushikdev.doublerbay.cli.Terminal;
 import io.github.rkaushikdev.doublerbay.store.Database;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,7 +28,29 @@ import java.util.Optional;
  */
 public final class Cli {
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     private Cli() {}
+
+    /** Write a document as JSON into a directory, as UTF-8, and say where it went. */
+    public static Path written(Path directory, String name, Object document) {
+        try {
+            return writtenText(directory, name, JSON.writeValueAsString(document));
+        } catch (JsonProcessingException unwritable) {
+            throw new IllegalStateException(unwritable);
+        }
+    }
+
+    /** Write text into a directory, as UTF-8, and say where it went. */
+    public static Path writtenText(Path directory, String name, String text) {
+        Path path = directory.resolve(name);
+        try {
+            Files.writeString(path, text, StandardCharsets.UTF_8);
+        } catch (IOException unwritable) {
+            throw new UncheckedIOException(unwritable);
+        }
+        return path;
+    }
 
     /** Run a command line against a database the test holds, which is left open. */
     public static Ran invoke(Database database, String... args) {
