@@ -58,8 +58,14 @@ import picocli.CommandLine.ParseResult;
             Assessing.AssessCard.class,
             Assessing.AssessTail.class,
             Cards.Group.class,
+            Checking.Group.class,
+            Corroding.Group.class,
+            Desk.Defer.class,
             Main.Fleet.class,
             Main.Init.class,
+            Ordering.Group.class,
+            Repairing.Group.class,
+            Desk.Report.class,
             Main.Seed.class,
         })
 public final class Main {
