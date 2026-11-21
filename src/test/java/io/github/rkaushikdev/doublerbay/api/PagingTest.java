@@ -188,4 +188,12 @@ class PagingTest {
         Built built = built();
         assertThat(built.api().get("/aircraft/9999/findings").status()).isEqualTo(404);
     }
+
+    @Test
+    void theDeferralListPages() {
+        Built built = built();
+        JsonNode body = built.api().get("/deferrals", Map.of("limit", 2)).json();
+        assertThat(body.get("total").asInt()).isZero();
+        assertThat(body.get("rows")).hasToString("[]");
+    }
 }
